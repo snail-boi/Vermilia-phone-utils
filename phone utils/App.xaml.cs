@@ -15,7 +15,7 @@ namespace phone_utils
     // also the repo name will change
     public partial class App : Application
     {
-        public static readonly string CurrentVersion = "v1.2-beta20";
+        public static readonly string CurrentVersion = "v1.2-beta21";
     }
 
 }

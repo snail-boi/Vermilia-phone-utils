@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.Tracing;
 using System.DirectoryServices.ActiveDirectory;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -82,14 +83,37 @@ namespace phone_utils
 
             if (Config.ScrcpyAutoStart.Enabled == true)
             {
-                var psi = new ProcessStartInfo
+                try
                 {
-                    FileName = Config.Paths.Scrcpy,
-                    Arguments = $"-s {currentDevice} {Config.ScrcpyAutoStart.Arguments}",
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-                Debugger.show("Starting scrcpy process with command: " + psi.FileName + " " + psi.Arguments); // Trace process start
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = Config.Paths.Scrcpy,
+                        Arguments = $"-s {Config.SelectedDeviceUSB} {Config.ScrcpyAutoStart.Arguments}",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    };
+                    Debugger.show("Starting scrcpy process with command: " + psi.FileName + " " + psi.Arguments); // Trace process start
+
+                    using var scrcpyProcess = Process.Start(psi);
+                    if (scrcpyProcess == null)
+                    {
+                        Debugger.show("Failed to start scrcpy process.");
+                        return;
+                    }
+
+                    Dispatcher.InvokeAsync(() => DeviceStatusText.Text += " - Ready");
+                    Debugger.show("scrcpy process started successfully."); // Confirm process start
+
+                    // Wait for exit asynchronously
+                    scrcpyProcess.WaitForExitAsync().ConfigureAwait(false);
+
+                    Debugger.show("scrcpy process exited."); // Trace exit
+                }
+                catch (Exception ex)
+                {
+                    Dispatcher.InvokeAsync(() => MessageBox.Show($"scrcpy launch failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error));
+                    Debugger.show("scrcpy launch exception: " + ex.Message); // Trace exception
+                }
             }
         }
 
