@@ -151,7 +151,11 @@ namespace phone_utils
         {
             //this shit should run whenever you open the usercontrol or check the checkbox, so this things should usually save correctly
             var args = BuildScrcpyArgs();
-            _main.Config.ScrcpyAutoStart.Arguments = string.Join(" ", args);
+            // previously saved to ScrcpyAutoStart; now we save to AutorunStart if enabled
+            if (_main.Config.AutorunStart != null)
+            {
+                _main.Config.AutorunStart.Arguments = string.Join(" ", args);
+            }
             SaveCurrentSettings();
             Debugger.show("ChkAutoEnable_Checked: Auto-start enabled."); // Trace auto-start enable
         }
@@ -232,7 +236,7 @@ namespace phone_utils
             TxtVideoBuffer.Text = settings.VideoBufferSize.ToString();
             CmbAndroidApps.Text = settings.VirtualDisplayApp ?? "";
             CmbCameraList.SelectedIndex = settings.CameraType;
-            ChkAutoEnable.IsChecked = _main.Config.ScrcpyAutoStart.Enabled;
+            // Auto-start checkbox removed; autorun is managed in SettingsControl now
 
             _hotkeysEnabled = settings.EnableHotkeys;
 
@@ -268,7 +272,7 @@ namespace phone_utils
             settings.VideoBufferSize = int.TryParse(TxtVideoBuffer.Text, out int vbuffer) ? vbuffer : 50;
             settings.VirtualDisplayApp = CmbAndroidApps.Text;
             settings.CameraType = CmbCameraList.SelectedIndex;
-            _main.Config.ScrcpyAutoStart.Enabled = ChkAutoEnable.IsChecked == true;
+            // Auto-start checkbox removed from this control; settings saved in SettingsControl now
 
             string configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Phone Utils", "config.json");
             if (!Directory.Exists(Path.GetDirectoryName(configPath))) Directory.CreateDirectory(Path.GetDirectoryName(configPath));
@@ -367,9 +371,10 @@ namespace phone_utils
             }
 
             Debugger.show("Final scrcpy args: " + string.Join(" ", args)); // Trace final args li
-            if (_main.Config.ScrcpyAutoStart.Enabled)
+            // Save args to AutorunStart if autorun is enabled
+            if (_main.Config.AutorunStart != null && _main.Config.AutorunStart.Enabled)
             {
-                _main.Config.ScrcpyAutoStart.Arguments = string.Join(" ", args); // Save for auto-start settings
+                _main.Config.AutorunStart.Arguments = string.Join(" ", args); // Save for auto-start settings
             }
             return args;
         }

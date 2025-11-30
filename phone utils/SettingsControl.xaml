@@ -9,463 +9,4 @@
              Background="#661E1E1E">
 
     <UserControl.Resources>
-        <!-- Converter to show SelectedItem (supports objects with Name or plain strings) -->
-        <local:SelectedItemDisplayConverter x:Key="SelectedItemDisplayConverter" />
-        <!-- Modern Button Style -->
-        <Style x:Key="ModernButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{DynamicResource ButtonBackground}" />
-            <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="4,2"/>
-            <Setter Property="Margin" Value="2"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border"
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="6">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHover}" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHover}" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Background" Value="#d3d3d3"/>
-                                <Setter Property="Foreground" Value="#777"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="ColorButtonStyle" TargetType="Button">
-            <Setter Property="Foreground" Value="Black"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="4,2"/>
-            <Setter Property="Margin" Value="2"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="Gray"
-                                BorderThickness="1"
-                                CornerRadius="6">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Label/TextBlock Style -->
-        <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="White"/>
-        </Style>
-        <Style TargetType="Label">
-            <Setter Property="Foreground" Value="White"/>
-        </Style>
-
-        <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="White"/>
-        </Style>
-
-        <!-- TextBox Style -->
-        <Style TargetType="TextBox">
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Background" Value="#222"/>
-            <Setter Property="BorderBrush" Value="#444"/>
-            <Setter Property="CaretBrush" Value="White"/>
-            <Setter Property="FontSize" Value="12"/>
-        </Style>
-
-        <!-- ComboBox Style: rounded with white background and black text (fixed layout) -->
-        <Style TargetType="ComboBox">
-            <Setter Property="Foreground" Value="Black"/>
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#444"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="6,2"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBox">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <Border x:Name="Border"
-                                    Grid.ColumnSpan="2"
-                                    Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="6" />
-
-                            <ContentPresenter x:Name="ContentSite"
-                                              Grid.Column="0"
-                                              Content="{Binding SelectedItem, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SelectedItemDisplayConverter}}"
-                                              ContentTemplate="{TemplateBinding ItemTemplate}"
-                                               Margin="8,2,32,2"
-                                               VerticalAlignment="Center"
-                                               RecognizesAccessKey="True">
-                                <ContentPresenter.Resources>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ComboBox}}"/>
-                                    </Style>
-                                </ContentPresenter.Resources>
-                             </ContentPresenter>
-
-                            <ToggleButton x:Name="ToggleButton"
-                                          Grid.Column="1"
-                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                          Focusable="False"
-                                          Background="Transparent"
-                                          BorderThickness="0"
-                                          Width="28"
-                                          HorizontalAlignment="Right"
-                                          VerticalAlignment="Center">
-                                <Grid Width="12" Height="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Path x:Name="Arrow" Fill="Black" Data="M 0 0 L 6 6 L 12 0 Z" Stretch="Fill"/>
-                                </Grid>
-                            </ToggleButton>
-
-                            <Popup x:Name="PART_Popup"
-                                   Grid.ColumnSpan="2"
-                                   IsOpen="{TemplateBinding IsDropDownOpen}"
-                                   Placement="Bottom"
-                                   AllowsTransparency="True"
-                                   Focusable="False"
-                                   PopupAnimation="Fade">
-                                <Border Background="White" CornerRadius="6" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" SnapsToDevicePixels="True">
-                                    <ScrollViewer Margin="0" KeyboardNavigation.DirectionalNavigation="Contained">
-                                        <StackPanel IsItemsHost="True" />
-                                    </ScrollViewer>
-                                </Border>
-                            </Popup>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="Border" Property="Opacity" Value="0.6"/>
-                                <Setter Property="Foreground" Value="#777"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Ensure ComboBox items use black text in dropdown despite global TextBlock style -->
-        <Style TargetType="ComboBoxItem">
-            <Setter Property="Foreground" Value="Black"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Padding" Value="4,2"/>
-            <Setter Property="HorizontalContentAlignment" Value="Left"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBoxItem">
-                        <Border x:Name="Border" Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="Border" Property="Background" Value="#e6e6e6"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-    </UserControl.Resources>
-
-    <Grid VerticalAlignment="Top" HorizontalAlignment="Center">
-        <Border Background="#2a2a2a" 
-                CornerRadius="8" 
-                Padding="8" 
-                BorderBrush="Gray" 
-                BorderThickness="1"
-                VerticalAlignment="Top"
-                HorizontalAlignment="Center">
-
-            <StackPanel>
-
-                <!-- Button Color Settings -->
-                <Expander IsExpanded="False" Margin="8">
-                    <Expander.Header>
-                        <TextBlock Text="Button Color Settings" 
-                                   FontSize="14" 
-                                   FontWeight="Bold" 
-                                   Margin="0,0,0,6"/>
-                    </Expander.Header>
-
-                    <StackPanel Orientation="Vertical" Margin="8">
-
-                        <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
-                            <TextBlock Text="Button Background:" Width="120" VerticalAlignment="Center" ToolTip="Pick the background color for all buttons."/>
-                            <Button x:Name="BtnPickButtonBackground" 
-                                    Width="150" 
-                                    Content="Pick Color" 
-                                    Click="BtnPickButtonBackground_Click" 
-                                    Style="{StaticResource ColorButtonStyle}"/>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
-                            <TextBlock Text="Button Text:" Width="120" VerticalAlignment="Center" ToolTip="Pick the text color for all buttons."/>
-                            <Button x:Name="BtnPickButtonText" 
-                                    Width="150" 
-                                    Content="Pick Color" 
-                                    Click="BtnPickButtonText_Click" 
-                                    Style="{StaticResource ColorButtonStyle}"/>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
-                            <TextBlock Text="Button Hover:" Width="120" VerticalAlignment="Center" ToolTip="Pick the hover color for all buttons."/>
-                            <Button x:Name="BtnPickButtonHover" 
-                                    Width="150" 
-                                    Content="Pick Color" 
-                                    Click="BtnPickButtonHover_Click" 
-                                    Style="{StaticResource ColorButtonStyle}"/>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
-                            <TextBlock Text="Background Color:" Width="120" VerticalAlignment="Center" ToolTip="Pick the background color for the main window."/>
-                            <Button x:Name="BtnPickBackgroundColor"
-                                    Width="150"
-                                    Content="Pick Color"
-                                    Click="BtnPickBackgroundColor_Click"
-                                    Style="{StaticResource ColorButtonStyle}"/>
-                        </StackPanel>
-
-                        <!-- Theme Selection and Management -->
-                        <StackPanel Orientation="Horizontal" Margin="0,8,0,2">
-                            <TextBlock Text="Theme:" Width="100" VerticalAlignment="Center"/>
-                            <ComboBox x:Name="CmbThemes" 
-                                      Width="150" 
-                                      Margin="0,0,5,0"
-                                      SelectionChanged="CmbThemes_SelectionChanged"/>
-                            <Button x:Name="BtnSaveTheme" 
-                                    Content="Save" 
-                                    Click="BtnSaveTheme_Click" 
-                                    Style="{StaticResource ModernButtonStyle}"
-                                    Width="50"/>
-                            <Button x:Name="BtnDeleteTheme" 
-                                    Content="Delete" 
-                                    Click="BtnDeleteTheme_Click" 
-                                    Style="{StaticResource ModernButtonStyle}"
-                                    Width="50"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Expander>
-
-                <!-- Separator -->
-                <Separator Margin="8,-6,8,-6" Background="#444"/>
-
-                <!-- Background Image Settings -->
-                <Expander IsExpanded="False" Margin="8">
-                    <Expander.Header>
-                        <TextBlock Text="Battery Info Settings" 
-                                   FontSize="14" 
-                                   FontWeight="Bold" 
-                                   Margin="0,0,0,6"/>
-                    </Expander.Header>
-
-                    <StackPanel Orientation="Vertical" Margin="8">
-
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">
-                            <CheckBox x:Name="ShowBatteryWarnings" 
-                                      Content="Show Battery Level Warnings" 
-                                      Margin="0" 
-                                      Foreground="White" 
-                                      Checked="ShowBatteryWarnings_Checked" 
-                                      Unchecked="ShowBatteryWarnings_Unchecked"
-                                      VerticalAlignment="Center"/>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">
-                            <CheckBox x:Name="ShowBatteryChargeWarnings" 
-                                      Content="Show Battery Level Warnings while charging" 
-                                      Margin="0" 
-                                      Foreground="White" 
-                                      Checked="ShowBatteryChargeWarnings_Checked" 
-                                      Unchecked="ShowBatteryChargeWarnings_Unchecked"
-                                      VerticalAlignment="Center"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">
-                            <CheckBox x:Name="WattThreshholdEnabled" 
-                                      Content="Enables warnings when charging under spefified watt" 
-                                      Margin="0" 
-                                      Foreground="White" 
-                                      Checked="WattThreshholdEnabled_Checked" 
-                                      Unchecked="WattThreshholdEnabled_Unchecked"
-                                      VerticalAlignment="Center"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
-                            <TextBlock Text="Watt Threshold:" Width="100" VerticalAlignment="Center"/>
-                            <TextBox x:Name="WattThreshhold" 
-                                     Width="200" 
-                                     Margin="0,0,5,0"
-                                     TextChanged="WattThreshhold_TextChanged"/>
-                        </StackPanel>
-
-                        <TextBlock Text="Battery Info Settings" 
-                                   FontSize="14" 
-                                   FontWeight="Bold" 
-                                   Margin="0,20,0,6"/>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                            <CheckBox x:Name="FirstWarningEnabled" 
-                                      Content="First warning:" 
-                                      Margin="0" 
-                                      Foreground="White" 
-                                      Checked="FirstWarningEnabled_Checked" 
-                                      Unchecked="FirstWarningEnabled_Unchecked"
-                                      VerticalAlignment="Center"/>
-                            <TextBox x:Name="FirstWarning" 
-                                     Width="200" 
-                                     Margin="0,0,5,0"
-                                     TextChanged="FirstWarning_TextChanged"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                            <CheckBox x:Name="SecondWarningEnabled" 
-                                      Content="Second warning:" 
-                                      Margin="0" 
-                                      Foreground="White" 
-                                      Checked="SecondWarningEnabled_Checked" 
-                                      Unchecked="SecondWarningEnabled_Unchecked"
-                                      VerticalAlignment="Center"/>
-                            <TextBox x:Name="SecondWarning" 
-                                     Width="200" 
-                                     Margin="0,0,5,0"
-                                     TextChanged="SecondWarning_TextChanged"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                            <CheckBox x:Name="ThirdWarningEnabled" 
-                                      Content="Third warning:" 
-                                      Margin="0" 
-                                      Foreground="White" 
-                                      Checked="ThirdWarningEnabled_Checked" 
-                                      Unchecked="ThirdWarningEnabled_Unchecked"
-                                      VerticalAlignment="Center"/>
-                            <TextBox x:Name="ThirdWarning" 
-                                     Width="200" 
-                                     Margin="0,0,5,0"
-                                     TextChanged="ThirdWarning_TextChanged"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                            <CheckBox x:Name="ShutdownWarningEnabled" 
-                                      Content="Final warning:" 
-                                      Margin="0" 
-                                      Foreground="White" 
-                                      Checked="ShutdownWarningEnabled_Checked" 
-                                      Unchecked="ShutdownWarningEnabled_Unchecked"
-                                      VerticalAlignment="Center"/>
-                            <TextBox x:Name="FinalWarning" 
-                                     Width="200" 
-                                     Margin="0,0,5,0"
-                                     TextChanged="FinalWarning_TextChanged"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">
-                            <CheckBox x:Name="EmergencyShutdown" 
-                                      Content="Emergency Shutdown" 
-                                      Margin="0" 
-                                      Foreground="White" 
-                                      Checked="EmergencyShutdown_Checked" 
-                                      Unchecked="EmergencyShutdown_Unchecked"
-                                      VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Expander>
-
-                <!-- Separator -->
-                <Separator Margin="8,-6,8,-6" Background="#444"/>
-
-                <!-- Developer Mode Settings -->
-                <Expander IsExpanded="True" Margin="8">
-                    <Expander.Header>
-                        <TextBlock Text="Extra Options" 
-                                   FontSize="12" 
-                                   FontWeight="Bold" 
-                                   Margin="0,0,0,4"/>
-                    </Expander.Header>
-
-                    <StackPanel Orientation="Vertical" Margin="8">
-
-                        <!-- Enable Music Presence -->
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">
-                            <CheckBox x:Name="ChkMusicPresence" 
-                                      Content="Enable Music Presence" 
-                                      Margin="0" 
-                                      Foreground="White" 
-                                      Checked="ChkMusicPresence_Checked" 
-                                      Unchecked="ChkMusicPresence_Unchecked"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="Allows data collection on music." 
-                                       TextWrapping="Wrap"
-                                       Foreground="#AAA"
-                                       FontSize="9"
-                                       Margin="10,0,0,0"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-
-                        <!-- Enable Debug Mode -->
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">
-                            <CheckBox x:Name="ChkDebugMode" 
-                                      Content="Enable Debug Mode" 
-                                      Margin="0" 
-                                      Foreground="White" 
-                                      Checked="ChkDebugMode_Checked" 
-                                      Unchecked="ChkDebugMode_Unchecked"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="Logs all activities." 
-                                       TextWrapping="Wrap"
-                                       Foreground="#AAA"
-                                       FontSize="9"
-                                       Margin="10,0,0,0"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-
-                        <!-- Enable Developer Mode -->
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">
-                            <CheckBox x:Name="ChkDevmode" 
-                                      Content="Enable Developer Mode" 
-                                      Margin="0" 
-                                      Foreground="White" 
-                                      Checked="ChkDevmode_Checked" 
-                                      Unchecked="ChkDevmode_Unchecked"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="Enables extra features." 
-                                       TextWrapping="Wrap"
-                                       Foreground="#AAA"
-                                       FontSize="9"
-                                       Margin="10,0,0,0"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-
-                        <!-- Update Interval Mode -->
-                        <StackPanel Orientation="Horizontal" Margin="0,8,0,2">
-                            <TextBlock Text="Auto-update:" Width="100" VerticalAlignment="Center"/>
-                            <ComboBox x:Name="CmbUpdateInterval" Width="185" />
-                        </StackPanel>
-                    </StackPanel>
-                </Expander>
-
-            </StackPanel>
-
-        </Border>
-    </Grid>
-</UserControl>
+        <!-- Converter to show SelectedItem (supports objects with Name or plain strings) -->        <local:SelectedItemDisplayConverter x:Key="SelectedItemDisplayConverter" />        <!-- Modern Button Style -->        <Style x:Key="ModernButtonStyle" TargetType="Button">            <Setter Property="Background" Value="{DynamicResource ButtonBackground}" />            <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />            <Setter Property="FontWeight" Value="SemiBold"/>            <Setter Property="FontSize" Value="12"/>            <Setter Property="Padding" Value="4,2"/>            <Setter Property="Margin" Value="2"/>            <Setter Property="BorderThickness" Value="0"/>            <Setter Property="Cursor" Value="Hand"/>            <Setter Property="Template">                <Setter.Value>                    <ControlTemplate TargetType="Button">                        <Border x:Name="border"                                Background="{TemplateBinding Background}"                                CornerRadius="6">                            <ContentPresenter HorizontalAlignment="Center"                                              VerticalAlignment="Center"/>                        </Border>                        <ControlTemplate.Triggers>                            <Trigger Property="IsMouseOver" Value="True">                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHover}" />                            </Trigger>                            <Trigger Property="IsPressed" Value="True">                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHover}" />                            </Trigger>                            <Trigger Property="IsEnabled" Value="False">                                <Setter TargetName="border" Property="Background" Value="#d3d3d3"/>                                <Setter Property="Foreground" Value="#777"/>                            </Trigger>                        </ControlTemplate.Triggers>                    </ControlTemplate>                </Setter.Value>            </Setter>        </Style>        <Style x:Key="ColorButtonStyle" TargetType="Button">            <Setter Property="Foreground" Value="Black"/>            <Setter Property="FontWeight" Value="SemiBold"/>            <Setter Property="FontSize" Value="12"/>            <Setter Property="Padding" Value="4,2"/>            <Setter Property="Margin" Value="2"/>            <Setter Property="BorderThickness" Value="1"/>            <Setter Property="Cursor" Value="Hand"/>            <Setter Property="Template">                <Setter.Value>                    <ControlTemplate TargetType="Button">                        <Border x:Name="border"                                Background="{TemplateBinding Background}"                                BorderBrush="Gray"                                BorderThickness="1"                                CornerRadius="6">                            <ContentPresenter HorizontalAlignment="Center"                                              VerticalAlignment="Center"/>                        </Border>                    </ControlTemplate>                </Setter.Value>            </Setter>        </Style>        <!-- Label/TextBlock Style -->        <Style TargetType="TextBlock">            <Setter Property="Foreground" Value="White"/>        </Style>        <Style TargetType="Label">            <Setter Property="Foreground" Value="White"/>        </Style>        <Style TargetType="CheckBox">            <Setter Property="Foreground" Value="White"/>        </Style>        <!-- TextBox Style -->        <Style TargetType="TextBox">            <Setter Property="Foreground" Value="White"/>            <Setter Property="Background" Value="#222"/>            <Setter Property="BorderBrush" Value="#444"/>            <Setter Property="CaretBrush" Value="White"/>            <Setter Property="FontSize" Value="12"/>        </Style>        <!-- ComboBox Style: rounded with white background and black text (fixed layout) -->        <Style TargetType="ComboBox">            <Setter Property="Foreground" Value="Black"/>            <Setter Property="Background" Value="White"/>            <Setter Property="BorderBrush" Value="#444"/>            <Setter Property="FontSize" Value="12"/>            <Setter Property="Padding" Value="6,2"/>            <Setter Property="Template">                <Setter.Value>                    <ControlTemplate TargetType="ComboBox">                        <Grid>                            <Grid.ColumnDefinitions>                                <ColumnDefinition />                                <ColumnDefinition Width="Auto" />                            </Grid.ColumnDefinitions>                            <Border x:Name="Border"                                    Grid.ColumnSpan="2"                                    Background="{TemplateBinding Background}"                                    BorderBrush="{TemplateBinding BorderBrush}"                                    BorderThickness="{TemplateBinding BorderThickness}"                                    CornerRadius="6" />                            <ContentPresenter x:Name="ContentSite"                                              Grid.Column="0"                                              Content="{Binding SelectedItem, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SelectedItemDisplayConverter}}"                                              ContentTemplate="{TemplateBinding ItemTemplate}"                                               Margin="8,2,32,2"                                               VerticalAlignment="Center"                                               RecognizesAccessKey="True">                                <ContentPresenter.Resources>                                    <Style TargetType="TextBlock">                                        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ComboBox}}"/>                                    </Style>                                </ContentPresenter.Resources>                             </ContentPresenter>                            <ToggleButton x:Name="ToggleButton"                                          Grid.Column="1"                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"                                          Focusable="False"                                          Background="Transparent"                                          BorderThickness="0"                                          Width="28"                                          HorizontalAlignment="Right"                                          VerticalAlignment="Center">                                <Grid Width="12" Height="8" HorizontalAlignment="Center" VerticalAlignment="Center">                                    <Path x:Name="Arrow" Fill="Black" Data="M 0 0 L 6 6 L 12 0 Z" Stretch="Fill"/>                                </Grid>                            </ToggleButton>                            <Popup x:Name="PART_Popup"                                   Grid.ColumnSpan="2"                                   IsOpen="{TemplateBinding IsDropDownOpen}"                                   Placement="Bottom"                                   AllowsTransparency="True"                                   Focusable="False"                                   PopupAnimation="Fade">                                <Border Background="White" CornerRadius="6" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" SnapsToDevicePixels="True">                                    <ScrollViewer Margin="0" KeyboardNavigation.DirectionalNavigation="Contained">                                        <StackPanel IsItemsHost="True" />                                    </ScrollViewer>                                </Border>                            </Popup>                        </Grid>                        <ControlTemplate.Triggers>                            <Trigger Property="IsEnabled" Value="False">                                <Setter TargetName="Border" Property="Opacity" Value="0.6"/>                                <Setter Property="Foreground" Value="#777"/>                            </Trigger>                        </ControlTemplate.Triggers>                    </ControlTemplate>                </Setter.Value>            </Setter>        </Style>        <!-- Ensure ComboBox items use black text in dropdown despite global TextBlock style -->        <Style TargetType="ComboBoxItem">            <Setter Property="Foreground" Value="Black"/>            <Setter Property="Background" Value="Transparent"/>            <Setter Property="Padding" Value="4,2"/>            <Setter Property="HorizontalContentAlignment" Value="Left"/>            <Setter Property="VerticalContentAlignment" Value="Center"/>            <Setter Property="Template">                <Setter.Value>                    <ControlTemplate TargetType="ComboBoxItem">                        <Border x:Name="Border" Background="{TemplateBinding Background}">                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />                        </Border>                        <ControlTemplate.Triggers>                            <Trigger Property="IsHighlighted" Value="True">                                <Setter TargetName="Border" Property="Background" Value="#e6e6e6"/>                            </Trigger>                        </ControlTemplate.Triggers>                    </ControlTemplate>                </Setter.Value>            </Setter>        </Style>    </UserControl.Resources>    <Grid VerticalAlignment="Top" HorizontalAlignment="Center">        <Border Background="#2a2a2a"                 CornerRadius="8"                 Padding="8"                 BorderBrush="Gray"                 BorderThickness="1"                VerticalAlignment="Top"                HorizontalAlignment="Center">            <StackPanel>                <!-- Button Color Settings -->                <Expander IsExpanded="False" Margin="8">                    <Expander.Header>                        <TextBlock Text="Button Color Settings"                                    FontSize="14"                                    FontWeight="Bold"                                    Margin="0,0,0,6"/>                    </Expander.Header>                    <StackPanel Orientation="Vertical" Margin="8">                        <StackPanel Orientation="Horizontal" Margin="0,2,0,2">                            <TextBlock Text="Button Background:" Width="120" VerticalAlignment="Center" ToolTip="Pick the background color for all buttons."/>                            <Button x:Name="BtnPickButtonBackground"                                     Width="150"                                     Content="Pick Color"                                     Click="BtnPickButtonBackground_Click"                                     Style="{StaticResource ColorButtonStyle}"/>                        </StackPanel>                        <StackPanel Orientation="Horizontal" Margin="0,2,0,2">                            <TextBlock Text="Button Text:" Width="120" VerticalAlignment="Center" ToolTip="Pick the text color for all buttons."/>                            <Button x:Name="BtnPickButtonText"                                     Width="150"                                     Content="Pick Color"                                     Click="BtnPickButtonText_Click"                                     Style="{StaticResource ColorButtonStyle}"/>                        </StackPanel>                        <StackPanel Orientation="Horizontal" Margin="0,2,0,2">                            <TextBlock Text="Button Hover:" Width="120" VerticalAlignment="Center" ToolTip="Pick the hover color for all buttons."/>                            <Button x:Name="BtnPickButtonHover"                                     Width="150"                                     Content="Pick Color"                                     Click="BtnPickButtonHover_Click"                                     Style="{StaticResource ColorButtonStyle}"/>                        </StackPanel>                        <StackPanel Orientation="Horizontal" Margin="0,2,0,2">                            <TextBlock Text="Background Color:" Width="120" VerticalAlignment="Center" ToolTip="Pick the background color for the main window."/>                            <Button x:Name="BtnPickBackgroundColor"                                    Width="150"                                    Content="Pick Color"                                    Click="BtnPickBackgroundColor_Click"                                    Style="{StaticResource ColorButtonStyle}"/>                        </StackPanel>                        <!-- Theme Selection and Management -->                        <StackPanel Orientation="Horizontal" Margin="0,8,0,2">                            <TextBlock Text="Theme:" Width="100" VerticalAlignment="Center"/>                            <ComboBox x:Name="CmbThemes"                                       Width="150"                                       Margin="0,0,5,0"                                      SelectionChanged="CmbThemes_SelectionChanged"/>                            <Button x:Name="BtnSaveTheme"                                     Content="Save"                                     Click="BtnSaveTheme_Click"                                     Style="{StaticResource ModernButtonStyle}"                                    Width="50"/>                            <Button x:Name="BtnDeleteTheme"                                     Content="Delete"                                     Click="BtnDeleteTheme_Click"                                     Style="{StaticResource ModernButtonStyle}"                                    Width="50"/>                        </StackPanel>                    </StackPanel>                </Expander>                <!-- Separator -->                <Separator Margin="8,-6,8,-6" Background="#444"/>                <!-- Background Image Settings -->                <Expander IsExpanded="False" Margin="8">                    <Expander.Header>                        <TextBlock Text="Battery Info Settings"                                    FontSize="14"                                    FontWeight="Bold"                                    Margin="0,0,0,6"/>                    </Expander.Header>                    <StackPanel Orientation="Vertical" Margin="8">                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">                            <CheckBox x:Name="ShowBatteryWarnings"                                       Content="Show Battery Level Warnings"                                       Margin="0"                                       Foreground="White"                                       Checked="ShowBatteryWarnings_Checked"                                       Unchecked="ShowBatteryWarnings_Unchecked"                                      VerticalAlignment="Center"/>                        </StackPanel>                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">                            <CheckBox x:Name="ShowBatteryChargeWarnings"                                       Content="Show Battery Level Warnings while charging"                                       Margin="0"                                       Foreground="White"                                       Checked="ShowBatteryChargeWarnings_Checked"                                       Unchecked="ShowBatteryChargeWarnings_Unchecked"                                      VerticalAlignment="Center"/>                        </StackPanel>                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">                            <CheckBox x:Name="WattThreshholdEnabled"                                       Content="Enables warnings when charging under spefified watt"                                       Margin="0"                                       Foreground="White"                                       Checked="WattThreshholdEnabled_Checked"                                       Unchecked="WattThreshholdEnabled_Unchecked"                                      VerticalAlignment="Center"/>                        </StackPanel>                        <StackPanel Orientation="Horizontal" Margin="0,2,0,2">                            <TextBlock Text="Watt Threshold:" Width="100" VerticalAlignment="Center"/>                            <TextBox x:Name="WattThreshhold"                                      Width="200"                                      Margin="0,0,5,0"                                     TextChanged="WattThreshhold_TextChanged"/>                        </StackPanel>                        <TextBlock Text="Battery Info Settings"                                    FontSize="14"                                    FontWeight="Bold"                                    Margin="0,20,0,6"/>                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">                            <CheckBox x:Name="FirstWarningEnabled"                                       Content="First warning:"                                       Margin="0"                                       Foreground="White"                                       Checked="FirstWarningEnabled_Checked"                                       Unchecked="FirstWarningEnabled_Unchecked"                                      VerticalAlignment="Center"/>                            <TextBox x:Name="FirstWarning"                                      Width="200"                                      Margin="0,0,5,0"                                     TextChanged="FirstWarning_TextChanged"/>                        </StackPanel>                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">                            <CheckBox x:Name="SecondWarningEnabled"                                       Content="Second warning:"                                       Margin="0"                                       Foreground="White"                                       Checked="SecondWarningEnabled_Checked"                                       Unchecked="SecondWarningEnabled_Unchecked"                                      VerticalAlignment="Center"/>                            <TextBox x:Name="SecondWarning"                                      Width="200"                                      Margin="0,0,5,0"                                     TextChanged="SecondWarning_TextChanged"/>                        </StackPanel>                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">                            <CheckBox x:Name="ThirdWarningEnabled"                                       Content="Third warning:"                                       Margin="0"                                       Foreground="White"                                       Checked="ThirdWarningEnabled_Checked"                                       Unchecked="ThirdWarningEnabled_Unchecked"                                      VerticalAlignment="Center"/>                            <TextBox x:Name="ThirdWarning"                                      Width="200"                                      Margin="0,0,5,0"                                     TextChanged="ThirdWarning_TextChanged"/>                        </StackPanel>                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">                            <CheckBox x:Name="ShutdownWarningEnabled"                                       Content="Final warning:"                                       Margin="0"                                       Foreground="White"                                       Checked="ShutdownWarningEnabled_Checked"                                       Unchecked="ShutdownWarningEnabled_Unchecked"                                      VerticalAlignment="Center"/>                            <TextBox x:Name="FinalWarning"                                      Width="200"                                      Margin="0,0,5,0"                                     TextChanged="FinalWarning_TextChanged"/>                        </StackPanel>                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">                            <CheckBox x:Name="EmergencyShutdown"                                       Content="Emergency Shutdown"                                       Margin="0"                                       Foreground="White"                                       Checked="EmergencyShutdown_Checked"                                       Unchecked="EmergencyShutdown_Unchecked"                                      VerticalAlignment="Center"/>                        </StackPanel>                    </StackPanel>                </Expander>                <!-- Separator -->                <Separator Margin="8,-6,8,-6" Background="#444"/>                <!-- Developer Mode Settings -->                <Expander IsExpanded="True" Margin="8">                    <Expander.Header>                        <TextBlock Text="Extra Options"                                    FontSize="12"                                    FontWeight="Bold"                                    Margin="0,0,0,4"/>                    </Expander.Header>                    <StackPanel Orientation="Vertical" Margin="8">                        <!-- Enable Music Presence -->                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">                            <CheckBox x:Name="ChkMusicPresence"                                       Content="Enable Music Presence"                                       Margin="0"                                       Foreground="White"                                       Checked="ChkMusicPresence_Checked"                                       Unchecked="ChkMusicPresence_Unchecked"                                      VerticalAlignment="Center"/>                            <TextBlock Text="Allows data collection on music."                                        TextWrapping="Wrap"                                       Foreground="#AAA"                                       FontSize="9"                                       Margin="10,0,0,0"                                       VerticalAlignment="Center"/>                        </StackPanel>                        <!-- Enable Debug Mode -->                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">                            <CheckBox x:Name="ChkDebugMode"                                       Content="Enable Debug Mode"                                       Margin="0"                                       Foreground="White"                                       Checked="ChkDebugMode_Checked"                                       Unchecked="ChkDebugMode_Unchecked"                                      VerticalAlignment="Center"/>                            <TextBlock Text="Logs all activities."                                        TextWrapping="Wrap"                                       Foreground="#AAA"                                       FontSize="9"                                       Margin="10,0,0,0"                                       VerticalAlignment="Center"/>                        </StackPanel>                        <!-- Enable Developer Mode -->                        <StackPanel Orientation="Horizontal" Margin="0,4,0,2">                            <CheckBox x:Name="ChkDevmode"                                       Content="Enable Developer Mode"                                       Margin="0"                                       Foreground="White"                                       Checked="ChkDevmode_Checked"                                       Unchecked="ChkDevmode_Unchecked"                                      VerticalAlignment="Center"/>                            <TextBlock Text="Enables extra features."                                        TextWrapping="Wrap"                                       Foreground="#AAA"                                       FontSize="9"                                       Margin="10,0,0,0"                                       VerticalAlignment="Center"/>                        </StackPanel>                        <!-- Update Interval Mode -->                        <StackPanel Orientation="Horizontal" Margin="0,8,0,2">                            <TextBlock Text="Auto-update:" Width="100" VerticalAlignment="Center"/>                            <ComboBox x:Name="CmbUpdateInterval" Width="185" />                        </StackPanel>                        <!-- New Autorun / AutoUSB panel -->                        <StackPanel Orientation="Vertical" Margin="0,12,0,0">                            <TextBlock Text="Automatic scrcpy Start" FontWeight="Bold" Foreground="White" Margin="0,0,0,6"/>                            <Grid>                                <Grid.ColumnDefinitions>                                    <ColumnDefinition Width="Auto"/>                                    <ColumnDefinition Width="10"/>                                    <ColumnDefinition Width="Auto"/>                                </Grid.ColumnDefinitions>                                <!-- Row 1: AutorunStart + settings button -->                                <Button x:Name="BtnAutorunStart" Content="AutorunStart" Width="120" Height="28" Grid.Column="0" Style="{StaticResource ModernButtonStyle}"/>                                <Button x:Name="BtnAutorunStartSettings" Content="AutorunStart Settings" Width="140" Height="28" Grid.Column="2" Style="{StaticResource ModernButtonStyle}"/>                                <!-- Row 2: AutoUSBStart + settings button -->                                <Button x:Name="BtnAutoUsbStart" Content="AutoUSBstart" Width="120" Height="28" Grid.Column="0" Margin="0,36,0,0" Style="{StaticResource ModernButtonStyle}"/>                                <Button x:Name="BtnAutoUsbStartSettings" Content="AutoUSBstart Settings" Width="140" Height="28" Grid.Column="2" Margin="0,36,0,0" Style="{StaticResource ModernButtonStyle}"/>                            </Grid>                        </StackPanel>                    </StackPanel>                </Expander>            </StackPanel>        </Border>    </Grid></UserControl>

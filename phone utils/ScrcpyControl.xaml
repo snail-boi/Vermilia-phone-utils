@@ -126,8 +126,6 @@
                         <CheckBox x:Name="ChkMaxSize" Content="Limit Max Size:" IsChecked="True" Margin="2,3,2,3" Style="{StaticResource ToggleCheckBoxStyle}"/>
                         <Button x:Name="camera" Click="BtnCamera_click" Content="Camera mode:" Margin="2,4,2,6" Style="{StaticResource ModernButtonStyle}"/>
                         <Button x:Name="BtnDisplay" Click="BtnDisplay_click" Content="virtual display:" Margin="2,3,2,4" Style="{StaticResource ModernButtonStyle}"/>
-                        <CheckBox x:Name="ChkAutoEnable" Checked="ChkAutoEnable_Checked" Content="Auto-start" IsChecked="False" Margin="2,3,2,3" Style="{StaticResource ToggleCheckBoxStyle}"/>
-                        <!-- Moved down -->
                     </StackPanel>
 
 

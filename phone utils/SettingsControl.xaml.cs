@@ -30,6 +30,12 @@ namespace phone_utils
             InitializeUpdateIntervalUI();
             _isInitializing = false;
             LoadThemesIntoComboBox();
+
+            // wire up buttons
+            BtnAutorunStart.Click += BtnAutorunStart_Click;
+            BtnAutorunStartSettings.Click += BtnAutorunStartSettings_Click;
+            BtnAutoUsbStart.Click += BtnAutoUsbStart_Click;
+            BtnAutoUsbStartSettings.Click += BtnAutoUsbStartSettings_Click;
         }
 
         private void InitializeUpdateIntervalUI()
@@ -112,8 +118,23 @@ namespace phone_utils
             ShutdownWarningEnabled.IsChecked = _config.BatteryWarningSettings.shutdownwarningenabled;
             FinalWarning.Text = _config.BatteryWarningSettings.shutdownwarning.ToString();
             EmergencyShutdown.IsChecked = _config.BatteryWarningSettings.emergencydisconnectenabled;
-        }
 
+            // Update autorun buttons state
+            BtnAutorunStart.Content = "AutorunStart";
+            BtnAutorunStart.IsEnabled = true;
+            // reflect enabled state with visual cue (toggle text) - simple for now
+            if (_config.AutorunStart != null && _config.AutorunStart.Enabled) BtnAutorunStart.Content = "AutorunStart (On)";
+
+            BtnAutoUsbStart.Content = "AutoUSBstart";
+            if (_config.AutoUsbStart != null && _config.AutoUsbStart.Enabled) BtnAutoUsbStart.Content = "AutoUSBstart (On)";
+
+            // Apply button colors
+            Application.Current.Resources["ButtonBackground"] = (SolidColorBrush)new BrushConverter().ConvertFromString(_config.ButtonStyle.Background);
+            Application.Current.Resources["ButtonForeground"] = (SolidColorBrush)new BrushConverter().ConvertFromString(_config.ButtonStyle.Foreground);
+            Application.Current.Resources["ButtonHover"] = (SolidColorBrush)new BrushConverter().ConvertFromString(_config.ButtonStyle.Hover);
+
+            Debugger.show("Saved settings applied."); // Confirm settings applied
+        }
 
         private void ApplyButtonColors(ButtonStyleConfig style)
         {
@@ -241,7 +262,6 @@ namespace phone_utils
                 MessageBox.Show("Please select a theme to delete.", "No Theme Selected", MessageBoxButton.OK, MessageBoxImage.Exclamation);
             }
         }
-
 
 
         #region Color Pickers
@@ -483,7 +503,51 @@ namespace phone_utils
         }
         #endregion
 
+        #region Autorun/AutoUSB handlers
+        private void BtnAutorunStart_Click(object sender, RoutedEventArgs e)
+        {
+            // toggle enabled
+            _config.AutorunStart.Enabled = !_config.AutorunStart.Enabled;
+            BtnAutorunStart.Content = _config.AutorunStart.Enabled ? "AutorunStart (On)" : "AutorunStart (Off)";
+            SaveConfig();
+        }
 
+        private void BtnAutorunStartSettings_Click(object sender, RoutedEventArgs e)
+        {
+            // open scrcpy settings window for Autorun
+            var win = new ScrcpySettingsWindow(_main, _config, false)
+            {
+                Owner = Window.GetWindow(this)
+            };
+            if (win.ShowDialog() == true)
+            {
+                // reload config and UI
+                _config = ConfigManager.Load(configPath);
+                ApplyConfigToUI();
+            }
+        }
+
+        private void BtnAutoUsbStart_Click(object sender, RoutedEventArgs e)
+        {
+            _config.AutoUsbStart.Enabled = !_config.AutoUsbStart.Enabled;
+            BtnAutoUsbStart.Content = _config.AutoUsbStart.Enabled ? "AutoUSBstart (On)" : "AutoUSBstart (Off)";
+            SaveConfig();
+        }
+
+        private void BtnAutoUsbStartSettings_Click(object sender, RoutedEventArgs e)
+        {
+            // open scrcpy settings window for Auto USB
+            var win = new ScrcpySettingsWindow(_main, _config, true)
+            {
+                Owner = Window.GetWindow(this)
+            };
+            if (win.ShowDialog() == true)
+            {
+                _config = ConfigManager.Load(configPath);
+                ApplyConfigToUI();
+            }
+        }
+        #endregion
 
         #region Config Save
         private void SaveConfig(bool showmessage = false)

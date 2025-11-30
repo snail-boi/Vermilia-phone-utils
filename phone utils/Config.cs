@@ -9,6 +9,21 @@ namespace phone_utils
         public bool Enabled { get; set; } = false;
         public string Arguments { get; set; } = "";
     }
+
+    // New: renamed autorun start config (replaces/extends old Scrcpyautostart)
+    public class AutorunStartConfig
+    {
+        public bool Enabled { get; set; } = false;
+        public string Arguments { get; set; } = string.Empty;
+    }
+
+    // New: auto USB start config
+    public class AutoUsbStartConfig
+    {
+        public bool Enabled { get; set; } = false;
+        public string Arguments { get; set; } = string.Empty;
+    }
+
     public class DeviceConfig
     {
         public string Name { get; set; } = string.Empty;
@@ -75,7 +90,16 @@ namespace phone_utils
         public PathsConfig Paths { get; set; } = new PathsConfig();
         public FileSyncConfig FileSync { get; set; } = new FileSyncConfig();
         public ScrcpyConfig ScrcpySettings { get; set; } = new ScrcpyConfig();
+
+        // Keep old property for backward compatibility during load; new code should use AutorunStart and AutoUsbStart
         public Scrcpyautostart ScrcpyAutoStart { get; set; } = new Scrcpyautostart();
+
+        // New: renamed autorun config
+        public AutorunStartConfig AutorunStart { get; set; } = new AutorunStartConfig();
+
+        // New: auto USB start config
+        public AutoUsbStartConfig AutoUsbStart { get; set; } = new AutoUsbStartConfig();
+
         public YTDLConfig YTDL { get; set; } = new YTDLConfig();
         public BatteryWarningSettingConfig BatteryWarningSettings { get; set; } = new BatteryWarningSettingConfig();
         public List<ThemesConfig> Themes { get; set; } = new List<ThemesConfig>();
@@ -147,6 +171,22 @@ namespace phone_utils
                 {
                     string json = File.ReadAllText(path);
                     config = JsonConvert.DeserializeObject<AppConfig>(json) ?? new AppConfig();
+                }
+
+                // Migration: if new AutorunStart wasn't present but ScrcpyAutoStart has values, copy them over
+                if ((config.AutorunStart == null || string.IsNullOrEmpty(config.AutorunStart.Arguments)) && config.ScrcpyAutoStart != null)
+                {
+                    config.AutorunStart = new AutorunStartConfig
+                    {
+                        Enabled = config.ScrcpyAutoStart.Enabled,
+                        Arguments = config.ScrcpyAutoStart.Arguments
+                    };
+                }
+
+                // Ensure AutoUsbStart exists
+                if (config.AutoUsbStart == null)
+                {
+                    config.AutoUsbStart = new AutoUsbStartConfig();
                 }
 
                 // Ensure default themes exist if none are defined
