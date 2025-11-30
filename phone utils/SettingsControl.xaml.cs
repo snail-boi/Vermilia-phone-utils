@@ -32,10 +32,20 @@ namespace phone_utils
             LoadThemesIntoComboBox();
 
             // wire up buttons
-            BtnAutorunStart.Click += BtnAutorunStart_Click;
             BtnAutorunStartSettings.Click += BtnAutorunStartSettings_Click;
-            BtnAutoUsbStart.Click += BtnAutoUsbStart_Click;
             BtnAutoUsbStartSettings.Click += BtnAutoUsbStartSettings_Click;
+
+            // Use checkboxes for enabling autorun/autoUSB
+            if (this.FindName("ChkAutorunStart") is CheckBox chkAutorun)
+            {
+                chkAutorun.Checked += ChkAutorunStart_Checked;
+                chkAutorun.Unchecked += ChkAutorunStart_Unchecked;
+            }
+            if (this.FindName("ChkAutoUsbStart") is CheckBox chkAutoUsb)
+            {
+                chkAutoUsb.Checked += ChkAutoUsbStart_Checked;
+                chkAutoUsb.Unchecked += ChkAutoUsbStart_Unchecked;
+            }
         }
 
         private void InitializeUpdateIntervalUI()
@@ -119,14 +129,9 @@ namespace phone_utils
             FinalWarning.Text = _config.BatteryWarningSettings.shutdownwarning.ToString();
             EmergencyShutdown.IsChecked = _config.BatteryWarningSettings.emergencydisconnectenabled;
 
-            // Update autorun buttons state
-            BtnAutorunStart.Content = "AutorunStart";
-            BtnAutorunStart.IsEnabled = true;
-            // reflect enabled state with visual cue (toggle text) - simple for now
-            if (_config.AutorunStart != null && _config.AutorunStart.Enabled) BtnAutorunStart.Content = "AutorunStart (On)";
-
-            BtnAutoUsbStart.Content = "AutoUSBstart";
-            if (_config.AutoUsbStart != null && _config.AutoUsbStart.Enabled) BtnAutoUsbStart.Content = "AutoUSBstart (On)";
+            // Update autorun checkbox state
+            if (this.FindName("ChkAutorunStart") is CheckBox chkA) chkA.IsChecked = _config.AutorunStart != null && _config.AutorunStart.Enabled;
+            if (this.FindName("ChkAutoUsbStart") is CheckBox chkU) chkU.IsChecked = _config.AutoUsbStart != null && _config.AutoUsbStart.Enabled;
 
             // Apply button colors
             Application.Current.Resources["ButtonBackground"] = (SolidColorBrush)new BrushConverter().ConvertFromString(_config.ButtonStyle.Background);
@@ -504,14 +509,6 @@ namespace phone_utils
         #endregion
 
         #region Autorun/AutoUSB handlers
-        private void BtnAutorunStart_Click(object sender, RoutedEventArgs e)
-        {
-            // toggle enabled
-            _config.AutorunStart.Enabled = !_config.AutorunStart.Enabled;
-            BtnAutorunStart.Content = _config.AutorunStart.Enabled ? "AutorunStart (On)" : "AutorunStart (Off)";
-            SaveConfig();
-        }
-
         private void BtnAutorunStartSettings_Click(object sender, RoutedEventArgs e)
         {
             // open scrcpy settings window for Autorun
@@ -527,13 +524,6 @@ namespace phone_utils
             }
         }
 
-        private void BtnAutoUsbStart_Click(object sender, RoutedEventArgs e)
-        {
-            _config.AutoUsbStart.Enabled = !_config.AutoUsbStart.Enabled;
-            BtnAutoUsbStart.Content = _config.AutoUsbStart.Enabled ? "AutoUSBstart (On)" : "AutoUSBstart (Off)";
-            SaveConfig();
-        }
-
         private void BtnAutoUsbStartSettings_Click(object sender, RoutedEventArgs e)
         {
             // open scrcpy settings window for Auto USB
@@ -546,6 +536,35 @@ namespace phone_utils
                 _config = ConfigManager.Load(configPath);
                 ApplyConfigToUI();
             }
+        }
+
+        // Checkbox handlers for autorun/autousb toggles
+        private void ChkAutorunStart_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            _config.AutorunStart.Enabled = true;
+            SaveConfig();
+        }
+
+        private void ChkAutorunStart_Unchecked(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            _config.AutorunStart.Enabled = false;
+            SaveConfig();
+        }
+
+        private void ChkAutoUsbStart_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            _config.AutoUsbStart.Enabled = true;
+            SaveConfig();
+        }
+
+        private void ChkAutoUsbStart_Unchecked(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            _config.AutoUsbStart.Enabled = false;
+            SaveConfig();
         }
         #endregion
 

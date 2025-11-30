@@ -240,12 +240,24 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- Autorun Start row -->
-                            <Button x:Name="BtnAutorunStart" Content="Autorun Start" Grid.Row="0" Grid.Column="0" Style="{StaticResource SmallModernButtonStyle}" HorizontalAlignment="Left"/>
+                            <!-- Autorun Start row: checkbox + description on left, settings button on right -->
+                            <StackPanel Orientation="Horizontal" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center">
+                                <CheckBox x:Name="ChkAutorunStart" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <StackPanel Orientation="Vertical">
+                                    <TextBlock Text="Start scrcpy automatically when the app launches." FontSize="12" Foreground="#CCC" />
+                                    <TextBlock Text="Uses saved scrcpy arguments." FontSize="10" Foreground="#888" />
+                                </StackPanel>
+                            </StackPanel>
                             <Button x:Name="BtnAutorunStartSettings" Content="Settings" Grid.Row="0" Grid.Column="1" Style="{StaticResource SmallSecondaryButtonStyle}" Margin="8,0,0,0" HorizontalAlignment="Right"/>
 
-                            <!-- Auto USB Start row -->
-                            <Button x:Name="BtnAutoUsbStart" Content="AutoUSB Start" Grid.Row="2" Grid.Column="0" Style="{StaticResource SmallModernButtonStyle}" HorizontalAlignment="Left"/>
+                            <!-- Auto USB Start row: checkbox + description, settings button -->
+                            <StackPanel Orientation="Horizontal" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center">
+                                <CheckBox x:Name="ChkAutoUsbStart" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <StackPanel Orientation="Vertical">
+                                    <TextBlock Text="Start scrcpy when the selected USB device connects." FontSize="12" Foreground="#CCC" />
+                                    <TextBlock Text="Only triggers on new USB connections." FontSize="10" Foreground="#888" />
+                                </StackPanel>
+                            </StackPanel>
                             <Button x:Name="BtnAutoUsbStartSettings" Content="Settings" Grid.Row="2" Grid.Column="1" Style="{StaticResource SmallSecondaryButtonStyle}" Margin="8,0,0,0" HorizontalAlignment="Right"/>
                         </Grid>
                     </StackPanel>
