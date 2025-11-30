@@ -88,28 +88,7 @@ namespace phone_utils
             if (connectionCheckTimer.Interval.TotalSeconds > 0)
                 connectionCheckTimer.Start();
 
-            // AutorunStart: start scrcpy at program startup if configured
-            try
-            {
-                if (Config?.AutorunStart != null && Config.AutorunStart.Enabled)
-                {
-                    if (File.Exists(Config.Paths.Scrcpy))
-                    {
-                        var device = Config.SelectedDeviceUSB;
-                        var args = $"-s {device} {Config.AutorunStart.Arguments}".Trim();
-                        StartScrcpyProcessForDevice(device, args);
-                        Debugger.show("AutorunStart started scrcpy for device: " + device);
-                    }
-                    else
-                    {
-                        Debugger.show("AutorunStart: scrcpy.exe not found at path: " + Config.Paths.Scrcpy);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debugger.show("AutorunStart exception: " + ex.Message);
-            }
+            // Note: Autorun start logic moved to TryAutorunStartAsync, which runs after initial device detection
         }
 
         private async void MainWindow_Loaded(object? sender, RoutedEventArgs e)
@@ -118,12 +97,89 @@ namespace phone_utils
             try
             {
                 await DetectDeviceAsync();
+
+                // After detection, attempt autorun start — prefer USB first, then Wi‑Fi
+                await TryAutorunStartAsync();
             }
             catch (Exception ex)
             {
                 Debugger.show($"Error during initial device detection: {ex.Message}");
             }
         }
+
+        // Attempt to autorun scrcpy: prefer USB then Wi‑Fi
+        private async Task TryAutorunStartAsync()
+        {
+            try
+            {
+                if (Config?.AutorunStart == null || !Config.AutorunStart.Enabled)
+                {
+                    Debugger.show("AutorunStart not enabled");
+                    return;
+                }
+
+                if (!File.Exists(Config.Paths.Scrcpy))
+                {
+                    Debugger.show("AutorunStart: scrcpy.exe not found at path: " + Config.Paths.Scrcpy);
+                    return;
+                }
+
+                // Get current adb device list
+                var devices = await AdbHelper.RunAdbCaptureAsync("devices");
+                Debugger.show($"AutorunStart - adb devices output:\n{devices}");
+                var deviceList = devices.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+                // Try USB first if configured
+                if (!string.IsNullOrEmpty(Config.SelectedDeviceUSB))
+                {
+                    bool usbConnected = deviceList.Any(l => l.StartsWith(Config.SelectedDeviceUSB) && l.EndsWith("device"));
+                    if (usbConnected)
+                    {
+                        var args = $"-s {Config.SelectedDeviceUSB} {Config.AutorunStart.Arguments}".Trim();
+                        StartScrcpyProcessForDevice(Config.SelectedDeviceUSB, args);
+                        Debugger.show("AutorunStart started scrcpy for USB device: " + Config.SelectedDeviceUSB);
+                        return;
+                    }
+                    else
+                    {
+                        Debugger.show("AutorunStart: USB device not connected: " + Config.SelectedDeviceUSB);
+                    }
+                }
+
+                // If USB did not work, try Wi‑Fi (if configured)
+                if (!string.IsNullOrEmpty(Config.SelectedDeviceWiFi) && Config.SelectedDeviceWiFi != "None")
+                {
+                    // Attempt to connect to the Wi‑Fi device (may be a no‑op if already connected)
+                    Debugger.show("AutorunStart: attempting Wi‑Fi connect to " + Config.SelectedDeviceWiFi);
+                    var connectResult = await AdbHelper.RunAdbCaptureAsync($"connect {Config.SelectedDeviceWiFi}");
+                    Debugger.show("AutorunStart - adb connect result: " + connectResult);
+
+                    // Re-query devices to see if Wi‑Fi device is present
+                    devices = await AdbHelper.RunAdbCaptureAsync("devices");
+                    deviceList = devices.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    bool wifiConnected = deviceList.Any(l => l.StartsWith(Config.SelectedDeviceWiFi) && l.EndsWith("device"));
+
+                    if (wifiConnected)
+                    {
+                        var args = $"-s {Config.SelectedDeviceWiFi} {Config.AutorunStart.Arguments}".Trim();
+                        StartScrcpyProcessForDevice(Config.SelectedDeviceWiFi, args);
+                        Debugger.show("AutorunStart started scrcpy for Wi‑Fi device: " + Config.SelectedDeviceWiFi);
+                        return;
+                    }
+                    else
+                    {
+                        Debugger.show("AutorunStart: Wi‑Fi device not connected: " + Config.SelectedDeviceWiFi);
+                    }
+                }
+
+                Debugger.show("AutorunStart: no available device to start scrcpy");
+            }
+            catch (Exception ex)
+            {
+                Debugger.show("AutorunStart exception: " + ex.Message);
+            }
+        }
+
         #endregion
 
         #region Configuration & Setup
