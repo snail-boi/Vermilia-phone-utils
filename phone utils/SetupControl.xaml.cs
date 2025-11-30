@@ -4,6 +4,8 @@ using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace phone_utils
 {
@@ -177,6 +179,77 @@ namespace phone_utils
             return null;
         }
 
+        // New: Read MAC info (active MAC, factory MAC, randomization state) from device via adb
+        private async Task<(string ActiveMac, string FactoryMac, bool RandomizationEnabled)> GetDeviceMacInfoAsync(string serial)
+        {
+            try
+            {
+                var macRegex = new Regex("([0-9A-Fa-f]{2}[:\\-]){5}[0-9A-Fa-f]{2}", RegexOptions.Compiled);
+
+                // 1) Try reading the standard sysfs address
+                string out1 = await AdbHelper.RunAdbCaptureAsync($"-s {serial} shell cat /sys/class/net/wlan0/address");
+                if (!string.IsNullOrWhiteSpace(out1))
+                {
+                    var m = macRegex.Match(out1);
+                    if (m.Success)
+                    {
+                        string mac = m.Value.Trim().ToLower().Replace('-', ':');
+                        Debugger.show("Found mac via sysfs: " + mac);
+
+                        // also try dumpsys for factory/randomization info
+                        string dumpsys = await AdbHelper.RunAdbCaptureAsync($"-s {serial} shell dumpsys wifi");
+                        string factory = null;
+                        var factoryMatch = Regex.Match(dumpsys, @"wifi_sta_factory_mac_address\s*[:=]\s*([0-9A-Fa-f:\-]+)");
+                        if (factoryMatch.Success) factory = factoryMatch.Groups[1].Value.Trim().ToLower().Replace('-', ':');
+
+                        bool randEnabled = dumpsys.IndexOf("useRandomizedMac=true", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                           Regex.IsMatch(dumpsys, @"MacRandomizationSetting\s*=\s*[1-9]", RegexOptions.IgnoreCase);
+
+                        return (mac, factory ?? string.Empty, randEnabled);
+                    }
+                }
+
+                // 2) Fallback: use dumpsys wifi to extract active MAC and factory/randomization info
+                string dump = await AdbHelper.RunAdbCaptureAsync($"-s {serial} shell dumpsys wifi");
+                if (!string.IsNullOrWhiteSpace(dump))
+                {
+                    // Look for line with "MAC: aa:bb:cc:dd:ee:ff" (mWifiInfo)
+                    var macMatch = Regex.Match(dump, @"\bMAC:\s*([0-9A-Fa-f:\-]{17})");
+                    string active = null;
+                    if (macMatch.Success)
+                    {
+                        active = macMatch.Groups[1].Value.ToLower().Replace('-', ':');
+                        Debugger.show("Found mac via dumpsys (MAC:): " + active);
+                    }
+
+                    var factoryMatch2 = Regex.Match(dump, @"wifi_sta_factory_mac_address\s*[:=]\s*([0-9A-Fa-f:\-]+)");
+                    string factory2 = factoryMatch2.Success ? factoryMatch2.Groups[1].Value.ToLower().Replace('-', ':') : string.Empty;
+
+                    bool randEnabled2 = dump.IndexOf("useRandomizedMac=true", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                        Regex.IsMatch(dump, @"MacRandomizationSetting\s*=\s*[1-9]", RegexOptions.IgnoreCase) ||
+                                        dump.IndexOf("mRandomizedMacAddress", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                    if (!string.IsNullOrEmpty(active)) return (active, factory2, randEnabled2);
+
+                    // 3) As a last resort, search for any MAC in output
+                    var anyMac = macRegex.Match(dump);
+                    if (anyMac.Success)
+                    {
+                        string any = anyMac.Value.ToLower().Replace('-', ':');
+                        Debugger.show("Found mac via dumpsys any-match: " + any);
+                        return (any, factory2, randEnabled2);
+                    }
+                }
+
+                return (string.Empty, string.Empty, false);
+            }
+            catch (Exception ex)
+            {
+                Debugger.show("GetDeviceMacInfoAsync exception: " + ex.Message);
+                return (string.Empty, string.Empty, false);
+            }
+        }
+
         private async void SaveCurrentDevice(object sender, RoutedEventArgs e)
         {
             try
@@ -259,15 +332,23 @@ namespace phone_utils
                     return;
                 }
 
+                // Retrieve MAC info from device (while still USB connected)
+                var (activeMac, factoryMac, randomEnabled) = await GetDeviceMacInfoAsync(serial);
+
                 var newDevice = new DeviceConfig
                 {
                     Name = name,
                     UsbSerial = serial,
                     TcpIp = tcpIpWithPort,
                     LastConnected = DateTime.Now,
-                    Pincode = TxtPincode.Password
+                    Pincode = TxtPincode.Password,
+
+                    // Save MAC info if available
+                    MacAddress = string.IsNullOrWhiteSpace(activeMac) ? string.Empty : activeMac,
+                    FactoryMac = string.IsNullOrWhiteSpace(factoryMac) ? string.Empty : factoryMac,
+                    MacRandomizationEnabled = randomEnabled
                 };
-                Debugger.show("New device created: " + newDevice.UsbSerial + ", Name: " + newDevice.Name);
+                Debugger.show("New device created: " + newDevice.UsbSerial + ", Name: " + newDevice.Name + ", MAC: " + newDevice.MacAddress);
 
                 // Remove existing device with same serial
                 var existing = _config.SavedDevices.FirstOrDefault(d => d.UsbSerial == serial);
@@ -288,6 +369,18 @@ namespace phone_utils
                 DeviceSelector.SelectionChanged += DeviceSelector_SelectionChanged;
 
                 await SaveConfig(false);
+
+                // Show a warning if MAC randomization is enabled
+                if (newDevice.MacRandomizationEnabled)
+                {
+                    MessageBox.Show(
+                        "MAC randomization is enabled on this device. If you never changed MAC randomization settings, it is fine to keep them for security reasons. " +
+                        "However, be aware that the device may fail to connect over Wi-Fi debugging if the randomized MAC changes. Consider disabling per-network randomized MAC in your phone's Wi‑Fi network settings for a more stable connection.",
+                        "MAC Randomization Detected",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning
+                    );
+                }
 
                 string msg;
                 if (tcpIpWithPort == "None")
@@ -316,6 +409,22 @@ namespace phone_utils
             _config.SelectedDeviceWiFi = device.TcpIp;
             _config.SelectedDevicePincode = device.Pincode;
             TxtPincode.Password = device.Pincode;
+
+            // If selecting a saved device that has MAC randomization enabled, warn the user
+            try
+            {
+                if (device != null && device.MacRandomizationEnabled)
+                {
+                    MessageBox.Show(
+                        "This device has MAC randomization enabled. If you never changed MAC randomization settings, it is fine to keep them for security reasons. " +
+                        "However, the device may fail to connect over Wi-Fi debugging when the randomized MAC changes.",
+                        "MAC Randomization Detected",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning
+                    );
+                }
+            }
+            catch { }
         }
 
         private async void DeleteSelectedDevice(object sender, RoutedEventArgs e)

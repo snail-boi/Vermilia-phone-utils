@@ -32,6 +32,15 @@ namespace phone_utils
         public string Pincode { get; set; } = string.Empty;
         public DateTime LastConnected { get; set; } = DateTime.Now;
 
+        // New: store the device's current Wi-Fi MAC (colon-separated, lower-case)
+        public string MacAddress { get; set; } = string.Empty;
+
+        // New: store factory MAC if available (useful when randomization is enabled)
+        public string FactoryMac { get; set; } = string.Empty;
+
+        // New: whether device reports MAC randomization enabled
+        public bool MacRandomizationEnabled { get; set; } = false;
+
         public override string ToString() => string.IsNullOrWhiteSpace(Name) ? base.ToString() : Name;
     }
 
