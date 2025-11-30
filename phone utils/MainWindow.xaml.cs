@@ -8,14 +8,14 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using System.Threading.Tasks; // added for Task
+using System.Threading.Tasks;
 
 namespace phone_utils
 {
     public partial class MainWindow : Window
     {
         #region Fields
-        public AppConfig Config; // class-level
+        public AppConfig Config;
         public static string ADB_PATH;
         private string wifiDevice;
         public string currentDevice;
@@ -26,20 +26,16 @@ namespace phone_utils
         public bool MusicPresence;
         public static bool debugmode;
 
-
         private MediaController mediaController;
 
-        private int lastBatteryLevel = 100; // Add this field at the class level
-        private bool _isBatteryWarningShown = false; // Prevent multiple battery warnings
+        private int lastBatteryLevel = 100;
+        private bool _isBatteryWarningShown = false;
 
-        // Track which devices we've already started scrcpy for (to avoid restarting each update)
         private readonly HashSet<string> _scrcpyStartedForDevice = new HashSet<string>();
-
-        // Track whether the selected USB device was connected previously (to detect fresh connects)
         private bool _wasUsbConnectedForSelectedDevice = false;
         #endregion
 
-        #region Constructor
+        #region Initialization
         public MainWindow()
         {
             InitializeComponent();
@@ -52,6 +48,7 @@ namespace phone_utils
             mediaController.Initialize();
 
             LoadConfiguration();
+
             // Show info popup if no devices are saved
             if (Config.SavedDevices == null || Config.SavedDevices.Count == 0)
             {
@@ -73,7 +70,6 @@ namespace phone_utils
                     MessageBoxImage.Information
                 );
             }
-
 
             // Move device detection to the Loaded event so we can await it properly
             this.Loaded += MainWindow_Loaded;
@@ -106,7 +102,9 @@ namespace phone_utils
                 Debugger.show($"Error during initial device detection: {ex.Message}");
             }
         }
+        #endregion
 
+        #region Autorun
         // Attempt to autorun scrcpy: prefer USB then Wi‑Fi
         private async Task TryAutorunStartAsync()
         {
@@ -179,10 +177,9 @@ namespace phone_utils
                 Debugger.show("AutorunStart exception: " + ex.Message);
             }
         }
-
         #endregion
 
-        #region Configuration & Setup
+        #region Configuration
         private void LoadConfiguration()
         {
             Debugger.show("Loading Configuration...");
@@ -272,7 +269,7 @@ namespace phone_utils
         public string GetPincode() => Config.SelectedDevicePincode;
         #endregion
 
-        #region Device Detection & Status
+        #region Device Detection
         private async void ConnectionCheckTimer_Tick(object sender, EventArgs e) => await DetectDeviceAsync();
 
         private async Task DetectDeviceAsync()
@@ -410,15 +407,14 @@ namespace phone_utils
             if (ContentHost.Content == null) ShowNotificationsAsDefault();
             return true;
         }
+        #endregion
 
-
-
+        #region Battery & Foreground App
         private void SetStatus(string message, Color color)
         {
             StatusText.Text = message;
             StatusText.Foreground = new SolidColorBrush(color);
         }
-
 
         private async Task UpdateBatteryStatusAsync()
         {
@@ -597,8 +593,6 @@ namespace phone_utils
             wasCharging = isCharging;
         }
 
-
-
         private async Task UpdateForegroundAppAsync()
         {
             try
@@ -683,8 +677,6 @@ namespace phone_utils
             }
         }
 
-
-
         private async Task DisplayAppActivity()
         {
             var sleepState = await AdbHelper.RunAdbCaptureAsync($"-s {currentDevice} shell dumpsys power");
@@ -726,12 +718,9 @@ namespace phone_utils
                 DeviceStatusText.Text = $"Currently asleep";
             }
         }
-
-
-
         #endregion
 
-        #region Button Handlers
+        #region UI Handlers
         private void EnableButtons(bool enable)
         {
             bool adbAvailable = File.Exists(Config.Paths.Adb);
@@ -750,6 +739,7 @@ namespace phone_utils
                 Intent.Content = "App Manager";
             }
         }
+
         private void BtnSettings_Click(object sender, RoutedEventArgs e)
         {
             // Trigger the spin animation
@@ -766,6 +756,7 @@ namespace phone_utils
                 ContentHost.Content = new SettingsControl(this);
             }
         }
+
         private void BtnScrcpyOptions_Click(object sender, RoutedEventArgs e)
         {
             if (ContentHost.Content is ScrcpyControl)
@@ -838,7 +829,7 @@ namespace phone_utils
         private async void BtnRefresh_Click(object sender, RoutedEventArgs e) => await DetectDeviceAsync();
         #endregion
 
-        #region Utility Methods
+        #region Scrcpy Management
         private void ShowNotificationsAsDefault() => ContentHost.Content = new NotificationControl(this, currentDevice);
 
         private void CloseAllAdbProcesses()
@@ -863,9 +854,55 @@ namespace phone_utils
                     MessageBox.Show($"Failed to close ADB processes: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
+        // Helper to start scrcpy for a given device and track it so we don't restart repeatedly
+        private void StartScrcpyProcessForDevice(string deviceSerial, string arguments)
+        {
+            if (string.IsNullOrWhiteSpace(deviceSerial)) return;
+            if (_scrcpyStartedForDevice.Contains(deviceSerial)) return;
+
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = Config.Paths.Scrcpy,
+                    Arguments = arguments,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+
+                var proc = Process.Start(psi);
+                if (proc == null)
+                {
+                    Debugger.show("Failed to start scrcpy for device: " + deviceSerial);
+                    return;
+                }
+
+                // track that we've started scrcpy for this connection — do NOT remove on process exit.
+                // Clearing happens only when device disconnects.
+                _scrcpyStartedForDevice.Add(deviceSerial);
+
+                proc.EnableRaisingEvents = true;
+                proc.Exited += (s, e) =>
+                {
+                    try
+                    {
+                        // Log exit but do NOT clear the started flag here; this prevents automatic restart while still connected.
+                        Debugger.show("scrcpy process exited for device: " + deviceSerial);
+                    }
+                    catch { }
+                };
+
+                Debugger.show("Started scrcpy process: " + psi.FileName + " " + psi.Arguments);
+            }
+            catch (Exception ex)
+            {
+                Debugger.show("StartScrcpyProcessForDevice exception: " + ex.Message);
+            }
+        }
         #endregion
 
-        #region Cleanup
+        #region Utilities
         protected override void OnClosed(EventArgs e)
         {
             base.OnClosed(e);
@@ -915,53 +952,5 @@ namespace phone_utils
             }
         }
         #endregion
-
-        // Helper to start scrcpy for a given device and track it so we don't restart repeatedly
-        private void StartScrcpyProcessForDevice(string deviceSerial, string arguments)
-        {
-            if (string.IsNullOrWhiteSpace(deviceSerial)) return;
-            if (_scrcpyStartedForDevice.Contains(deviceSerial)) return;
-
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = Config.Paths.Scrcpy,
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                };
-
-                var proc = Process.Start(psi);
-                if (proc == null)
-                {
-                    Debugger.show("Failed to start scrcpy for device: " + deviceSerial);
-                    return;
-                }
-
-                // track that we've started scrcpy for this connection — do NOT remove on process exit.
-                // Clearing happens only when device disconnects.
-                _scrcpyStartedForDevice.Add(deviceSerial);
-
-                proc.EnableRaisingEvents = true;
-                proc.Exited += (s, e) =>
-                {
-                    try
-                    {
-                        // Log exit but do NOT clear the started flag here; this prevents automatic restart while still connected.
-                        Debugger.show("scrcpy process exited for device: " + deviceSerial);
-                    }
-                    catch { }
-                };
-
-                Debugger.show("Started scrcpy process: " + psi.FileName + " " + psi.Arguments);
-            }
-            catch (Exception ex)
-            {
-                Debugger.show("StartScrcpyProcessForDevice exception: " + ex.Message);
-            }
-        }
-
-
     }
 }
