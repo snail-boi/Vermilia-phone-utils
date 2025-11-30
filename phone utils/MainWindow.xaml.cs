@@ -8,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Threading.Tasks; // added for Task
 
 namespace phone_utils
 {
@@ -30,6 +31,12 @@ namespace phone_utils
 
         private int lastBatteryLevel = 100; // Add this field at the class level
         private bool _isBatteryWarningShown = false; // Prevent multiple battery warnings
+
+        // Track which devices we've already started scrcpy for (to avoid restarting each update)
+        private readonly HashSet<string> _scrcpyStartedForDevice = new HashSet<string>();
+
+        // Track whether the selected USB device was connected previously (to detect fresh connects)
+        private bool _wasUsbConnectedForSelectedDevice = false;
         #endregion
 
         #region Constructor
@@ -81,39 +88,27 @@ namespace phone_utils
             if (connectionCheckTimer.Interval.TotalSeconds > 0)
                 connectionCheckTimer.Start();
 
-            if (Config.ScrcpyAutoStart.Enabled == true)
+            // AutorunStart: start scrcpy at program startup if configured
+            try
             {
-                try
+                if (Config?.AutorunStart != null && Config.AutorunStart.Enabled)
                 {
-                    var psi = new ProcessStartInfo
+                    if (File.Exists(Config.Paths.Scrcpy))
                     {
-                        FileName = Config.Paths.Scrcpy,
-                        Arguments = $"-s {Config.SelectedDeviceUSB} {Config.ScrcpyAutoStart.Arguments}",
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    };
-                    Debugger.show("Starting scrcpy process with command: " + psi.FileName + " " + psi.Arguments); // Trace process start
-
-                    using var scrcpyProcess = Process.Start(psi);
-                    if (scrcpyProcess == null)
-                    {
-                        Debugger.show("Failed to start scrcpy process.");
-                        return;
+                        var device = Config.SelectedDeviceUSB;
+                        var args = $"-s {device} {Config.AutorunStart.Arguments}".Trim();
+                        StartScrcpyProcessForDevice(device, args);
+                        Debugger.show("AutorunStart started scrcpy for device: " + device);
                     }
-
-                    Dispatcher.InvokeAsync(() => DeviceStatusText.Text += " - Ready");
-                    Debugger.show("scrcpy process started successfully."); // Confirm process start
-
-                    // Wait for exit asynchronously
-                    scrcpyProcess.WaitForExitAsync().ConfigureAwait(false);
-
-                    Debugger.show("scrcpy process exited."); // Trace exit
+                    else
+                    {
+                        Debugger.show("AutorunStart: scrcpy.exe not found at path: " + Config.Paths.Scrcpy);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Dispatcher.InvokeAsync(() => MessageBox.Show($"scrcpy launch failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error));
-                    Debugger.show("scrcpy launch exception: " + ex.Message); // Trace exception
-                }
+            }
+            catch (Exception ex)
+            {
+                Debugger.show("AutorunStart exception: " + ex.Message);
             }
         }
 
@@ -259,7 +254,24 @@ namespace phone_utils
             if (string.IsNullOrEmpty(Config.SelectedDeviceUSB)) return false;
 
             bool usbConnected = deviceList.Any(l => l.StartsWith(Config.SelectedDeviceUSB) && l.EndsWith("device"));
-            if (!usbConnected) return false;
+
+            // If device is not connected but was previously connected, treat as disconnect
+            if (!usbConnected)
+            {
+                if (_wasUsbConnectedForSelectedDevice)
+                {
+                    Debugger.show($"USB device {Config.SelectedDeviceUSB} disconnected — clearing autostart tracking");
+                    // Clear started-tracking so future reconnect will autostart
+                    _scrcpyStartedForDevice.Remove(Config.SelectedDeviceUSB);
+                    _wasUsbConnectedForSelectedDevice = false;
+                }
+
+                return false;
+            }
+
+            // usbConnected == true here
+            bool isFreshConnect = !_wasUsbConnectedForSelectedDevice;
+            _wasUsbConnectedForSelectedDevice = true;
 
             SetStatus($"USB device connected: {Config.SelectedDeviceName}", Colors.Green);
             currentDevice = Config.SelectedDeviceUSB;
@@ -270,6 +282,31 @@ namespace phone_utils
             {
                 Debugger.show("Setting up Wi-Fi over USB...");
                 await SetupWifiOverUsbAsync(deviceList);
+            }
+
+            // Auto USB start: only start on a fresh connect event
+            try
+            {
+                if (Config.AutoUsbStart != null && Config.AutoUsbStart.Enabled && isFreshConnect)
+                {
+                    if (!_scrcpyStartedForDevice.Contains(currentDevice))
+                    {
+                        if (File.Exists(Config.Paths.Scrcpy))
+                        {
+                            var args = $"-s {currentDevice} {Config.AutoUsbStart.Arguments}".Trim();
+                            StartScrcpyProcessForDevice(currentDevice, args);
+                            Debugger.show("AutoUsbStart started scrcpy for device: " + currentDevice);
+                        }
+                        else
+                        {
+                            Debugger.show("AutoUsbStart: scrcpy.exe not found at path: " + Config.Paths.Scrcpy);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debugger.show("AutoUsbStart exception: " + ex.Message);
             }
 
             EnableButtons(true);
@@ -822,5 +859,53 @@ namespace phone_utils
             }
         }
         #endregion
+
+        // Helper to start scrcpy for a given device and track it so we don't restart repeatedly
+        private void StartScrcpyProcessForDevice(string deviceSerial, string arguments)
+        {
+            if (string.IsNullOrWhiteSpace(deviceSerial)) return;
+            if (_scrcpyStartedForDevice.Contains(deviceSerial)) return;
+
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = Config.Paths.Scrcpy,
+                    Arguments = arguments,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+
+                var proc = Process.Start(psi);
+                if (proc == null)
+                {
+                    Debugger.show("Failed to start scrcpy for device: " + deviceSerial);
+                    return;
+                }
+
+                // track that we've started scrcpy for this connection — do NOT remove on process exit.
+                // Clearing happens only when device disconnects.
+                _scrcpyStartedForDevice.Add(deviceSerial);
+
+                proc.EnableRaisingEvents = true;
+                proc.Exited += (s, e) =>
+                {
+                    try
+                    {
+                        // Log exit but do NOT clear the started flag here; this prevents automatic restart while still connected.
+                        Debugger.show("scrcpy process exited for device: " + deviceSerial);
+                    }
+                    catch { }
+                };
+
+                Debugger.show("Started scrcpy process: " + psi.FileName + " " + psi.Arguments);
+            }
+            catch (Exception ex)
+            {
+                Debugger.show("StartScrcpyProcessForDevice exception: " + ex.Message);
+            }
+        }
+
+
     }
 }
