@@ -179,7 +179,7 @@ namespace phone_utils
             return null;
         }
 
-        // New: Read MAC info (active MAC, factory MAC, randomization state) from device via adb
+        // Read MAC info (active MAC, factory MAC, randomization state) from device via adb
         private async Task<(string ActiveMac, string FactoryMac, bool RandomizationEnabled)> GetDeviceMacInfoAsync(string serial)
         {
             try
@@ -409,22 +409,6 @@ namespace phone_utils
             _config.SelectedDeviceWiFi = device.TcpIp;
             _config.SelectedDevicePincode = device.Pincode;
             TxtPincode.Password = device.Pincode;
-
-            // If selecting a saved device that has MAC randomization enabled, warn the user
-            try
-            {
-                if (device != null && device.MacRandomizationEnabled)
-                {
-                    MessageBox.Show(
-                        "This device has MAC randomization enabled. If you never changed MAC randomization settings, it is fine to keep them for security reasons. " +
-                        "However, the device may fail to connect over Wi-Fi debugging when the randomized MAC changes.",
-                        "MAC Randomization Detected",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning
-                    );
-                }
-            }
-            catch { }
         }
 
         private async void DeleteSelectedDevice(object sender, RoutedEventArgs e)

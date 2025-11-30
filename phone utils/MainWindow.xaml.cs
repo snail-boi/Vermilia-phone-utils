@@ -9,6 +9,10 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Threading.Tasks;
+using System.Net.NetworkInformation;
+using System.Net;
+using System.Threading;
+using System.Collections.Generic;
 
 namespace phone_utils
 {
@@ -33,6 +37,10 @@ namespace phone_utils
 
         private readonly HashSet<string> _scrcpyStartedForDevice = new HashSet<string>();
         private bool _wasUsbConnectedForSelectedDevice = false;
+
+        // Track consecutive failed wifi connect attempts per configured Wi‑Fi target
+        private readonly Dictionary<string, int> _wifiConnectFailures = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        private const int WifiFailThreshold = 3;
         #endregion
 
         #region Initialization
@@ -283,23 +291,296 @@ namespace phone_utils
                 return;
             }
 
-            if (Config.SelectedDeviceWiFi != "None")
-            {
-                Debugger.show($"Connecting to Wi-Fi device: {wifiDevice}");
-                await AdbHelper.RunAdbAsync($"connect {wifiDevice}");
-            }
-
             var devices = await AdbHelper.RunAdbCaptureAsync("devices");
             Debugger.show($"ADB devices output:\n{devices}");
 
             var deviceList = devices.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
+            // First check USB device
             if (await CheckUsbDeviceAsync(deviceList)) return;
-            if (await CheckWifiDeviceAsync(deviceList) && Config.SelectedDeviceWiFi != "None") return;
+
+            // Wi‑Fi handling: only if configured
+            if (!string.IsNullOrEmpty(Config.SelectedDeviceWiFi) && Config.SelectedDeviceWiFi != "None")
+            {
+                bool wifiPresent = deviceList.Any(l => l.StartsWith(Config.SelectedDeviceWiFi));
+                if (!wifiPresent)
+                {
+                    Debugger.show("Configured Wi‑Fi device not present in 'adb devices' — attempting adb connect...");
+
+                    // Try adb connect once
+                    string connectResult = await AdbHelper.RunAdbCaptureAsync($"connect {Config.SelectedDeviceWiFi}");
+                    Debugger.show("adb connect result: " + connectResult);
+
+                    bool connectSucceeded = !string.IsNullOrWhiteSpace(connectResult) && (
+                        connectResult.IndexOf("connected", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        connectResult.IndexOf("already", StringComparison.OrdinalIgnoreCase) >= 0);
+
+                    if (connectSucceeded)
+                    {
+                        Debugger.show("adb connect appears to have succeeded; clearing failure counter.");
+                        // clear failure counter and re-query devices
+                        _wifiConnectFailures.Remove(Config.SelectedDeviceWiFi);
+
+                        devices = await AdbHelper.RunAdbCaptureAsync("devices");
+                        deviceList = devices.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    }
+                    else
+                    {
+                        // increment failure counter
+                        int count = 0;
+                        _wifiConnectFailures.TryGetValue(Config.SelectedDeviceWiFi, out count);
+                        count++;
+                        _wifiConnectFailures[Config.SelectedDeviceWiFi] = count;
+                        Debugger.show($"adb connect failed for {Config.SelectedDeviceWiFi}. Failure count: {count}");
+
+                        // only attempt ARP discovery after threshold failures
+                        if (count >= WifiFailThreshold)
+                        {
+                            Debugger.show($"Failure threshold reached ({WifiFailThreshold}) for {Config.SelectedDeviceWiFi}. Attempting IP discovery by MAC...");
+
+                            bool resolved = await TryResolveDeviceIpAndReconnectAsync();
+
+                            // reset counter either way to avoid repeated ARP spam
+                            _wifiConnectFailures[Config.SelectedDeviceWiFi] = 0;
+
+                            if (resolved)
+                            {
+                                // re-query devices after resolving
+                                devices = await AdbHelper.RunAdbCaptureAsync("devices");
+                                deviceList = devices.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                            }
+                            else
+                            {
+                                Debugger.show("ARP discovery returned nothing; assuming device unavailable for now.");
+                                // nothing found — don't try ARP again until failures accumulate
+                            }
+                        }
+                        else
+                        {
+                            Debugger.show("Not yet reached failure threshold; will retry later.");
+                        }
+                    }
+                }
+                else
+                {
+                    // wifiPresent — ensure counter reset
+                    if (_wifiConnectFailures.ContainsKey(Config.SelectedDeviceWiFi))
+                        _wifiConnectFailures[Config.SelectedDeviceWiFi] = 0;
+
+                    Debugger.show("Wi‑Fi device present in adb devices — skipping discovery");
+                }
+
+                // Now check if Wi‑Fi device is connected
+                if (await CheckWifiDeviceAsync(deviceList)) return;
+            }
 
             SetStatus("No selected device found!", Colors.Red);
             EnableButtons(false);
             Debugger.show("No device detected");
+        }
+
+        private async Task<bool> TryResolveDeviceIpAndReconnectAsync()
+        {
+            try
+            {
+                // Find the saved device matching the selected device
+                DeviceConfig saved = null;
+                if (!string.IsNullOrEmpty(Config.SelectedDeviceUSB))
+                    saved = Config.SavedDevices.FirstOrDefault(d => d.UsbSerial == Config.SelectedDeviceUSB);
+                if (saved == null && !string.IsNullOrEmpty(Config.SelectedDeviceName))
+                    saved = Config.SavedDevices.FirstOrDefault(d => d.Name == Config.SelectedDeviceName);
+                if (saved == null && !string.IsNullOrEmpty(Config.SelectedDeviceWiFi))
+                    saved = Config.SavedDevices.FirstOrDefault(d => d.TcpIp == Config.SelectedDeviceWiFi);
+
+                if (saved == null)
+                {
+                    Debugger.show("No matching saved device found for IP resolution");
+                    return false;
+                }
+
+                // If device is explicitly saved as USB-only, do not attempt discovery
+                if (!string.IsNullOrEmpty(saved.TcpIp) && saved.TcpIp.Equals("None", StringComparison.OrdinalIgnoreCase))
+                {
+                    Debugger.show("Device is marked USB-only (TcpIp == 'None'); skipping IP discovery.");
+                    return false;
+                }
+
+                // Determine MACs to search for
+                var candidates = new List<string>();
+                if (!string.IsNullOrWhiteSpace(saved.MacAddress)) candidates.Add(saved.MacAddress.ToLower());
+                if (!string.IsNullOrWhiteSpace(saved.FactoryMac)) candidates.Add(saved.FactoryMac.ToLower());
+                if (candidates.Count == 0)
+                {
+                    Debugger.show("No MAC info stored for device; cannot perform IP discovery by MAC.");
+                    return false;
+                }
+
+                // Try each candidate MAC
+                foreach (var mac in candidates)
+                {
+                    string foundIp = await DiscoverIpByMacAsync(mac);
+                    if (!string.IsNullOrEmpty(foundIp))
+                    {
+                        string newTcp = foundIp.Contains(":") ? foundIp : foundIp + ":5555";
+
+                        Debugger.show($"Discovered device IP {foundIp} for MAC {mac}, updating config to {newTcp}");
+
+                        // Update config entries
+                        saved.TcpIp = newTcp;
+                        Config.SelectedDeviceWiFi = newTcp;
+
+                        // Save config to disk
+                        try
+                        {
+                            string configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Phone Utils", "Config.json");
+                            ConfigManager.Save(configPath, Config);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debugger.show("Failed to save config after IP discovery: " + ex.Message);
+                        }
+
+                        // Attempt to connect via ADB
+                        var connectResult = await AdbHelper.RunAdbCaptureAsync($"connect {Config.SelectedDeviceWiFi}");
+                        Debugger.show("ADB connect result after discovery: " + connectResult);
+
+                        return true;
+                    }
+                }
+
+                Debugger.show("IP discovery by MAC did not find the device on the local subnet");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Debugger.show("TryResolveDeviceIpAndReconnectAsync exception: " + ex.Message);
+                return false;
+            }
+        }
+
+        private async Task<string> DiscoverIpByMacAsync(string mac)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(mac)) return null;
+
+                // Normalize mac to lower-case colon-separated
+                string target = mac.ToLower().Replace('-', ':');
+
+                Debugger.show("Starting subnet ping sweep to discover MAC: " + target);
+
+                // Determine local IPv4 and prefix
+                string localIp = null;
+                foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (ni.OperationalStatus != OperationalStatus.Up) continue;
+                    if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+
+                    var props = ni.GetIPProperties();
+                    foreach (var ua in props.UnicastAddresses)
+                    {
+                        if (ua.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                        {
+                            var ip = ua.Address.ToString();
+                            if (!ip.StartsWith("169."))
+                            {
+                                localIp = ip;
+                                break;
+                            }
+                        }
+                    }
+                    if (!string.IsNullOrEmpty(localIp)) break;
+                }
+
+                if (string.IsNullOrEmpty(localIp))
+                {
+                    Debugger.show("Failed to determine local IPv4 address for ARP discovery");
+                    return null;
+                }
+
+                var parts = localIp.Split('.');
+                if (parts.Length < 3) return null;
+                string prefix = $"{parts[0]}.{parts[1]}.{parts[2]}";
+
+                // Ping sweep 1..254 in parallel with limited concurrency to populate ARP cache
+                var semaphore = new SemaphoreSlim(100);
+                var pingTasks = new List<Task>();
+                for (int i = 1; i <= 254; i++)
+                {
+                    string ip = $"{prefix}.{i}";
+                    if (ip == localIp) continue;
+
+                    await semaphore.WaitAsync();
+                    pingTasks.Add(Task.Run(async () =>
+                    {
+                        try
+                        {
+                            using (var p = new Ping())
+                            {
+                                await p.SendPingAsync(ip, 80);
+                            }
+                        }
+                        catch { }
+                        finally { semaphore.Release(); }
+                    }));
+                }
+
+                // Wait for pings to finish (or timeout)
+                await Task.WhenAll(pingTasks);
+
+                // Small delay to let ARP table populate
+                await Task.Delay(300);
+
+                // Read ARP table
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "arp",
+                    Arguments = "-a",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                };
+
+                string arpOutput = null;
+                try
+                {
+                    using var proc = Process.Start(psi);
+                    arpOutput = await proc.StandardOutput.ReadToEndAsync();
+                    proc.WaitForExit();
+                }
+                catch (Exception ex)
+                {
+                    Debugger.show("Failed to run arp -a: " + ex.Message);
+                    return null;
+                }
+
+                if (string.IsNullOrWhiteSpace(arpOutput)) return null;
+
+                // Parse lines like:  192.168.0.127         26-be-9f-31-4d-b0     dynamic
+                var lines = arpOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                var arpRegex = new Regex(@"(\d+\.\d+\.\d+\.\d+)\s+([0-9A-Fa-f\-:]{17})");
+
+                foreach (var line in lines)
+                {
+                    var m = arpRegex.Match(line);
+                    if (!m.Success) continue;
+                    var ip = m.Groups[1].Value.Trim();
+                    var macRaw = m.Groups[2].Value.Trim().ToLower();
+                    var macNorm = macRaw.Replace('-', ':');
+                    if (macNorm == target)
+                    {
+                        Debugger.show($"ARP match: {ip} -> {macNorm}");
+                        return ip;
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Debugger.show("DiscoverIpByMacAsync exception: " + ex.Message);
+                return null;
+            }
         }
 
         private async Task<bool> CheckUsbDeviceAsync(string[] deviceList)
