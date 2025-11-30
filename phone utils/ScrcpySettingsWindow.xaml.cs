@@ -15,23 +15,6 @@ namespace phone_utils
             _config = config;
             _isUsb = isUsb;
 
-            // load settings from config
-            var settings = _config.ScrcpySettings;
-
-            ChkAudioOnly.IsChecked = settings.AudioOnly;
-            ChkNoAudio.IsChecked = settings.NoAudio;
-            ChkPlaybackAudio.IsChecked = settings.PlaybackAudio;
-            ChkMaxSize.IsChecked = settings.LimitMaxSize;
-            TxtMaxSize.Text = settings.MaxSize.ToString();
-            ChkStayAwake.IsChecked = settings.StayAwake;
-            ChkTop.IsChecked = settings.Top;
-            ChkTurnScreenOff.IsChecked = settings.TurnScreenOff;
-            ChkLockAfterExit.IsChecked = settings.LockPhone;
-            Chkaudiobuffer.IsChecked = settings.audiobuffer;
-            Chkvideobuffer.IsChecked = settings.videobuffer;
-            TxtAudioBuffer.Text = settings.AudioBufferSize.ToString();
-            TxtVideoBuffer.Text = settings.VideoBufferSize.ToString();
-
             BtnSave.Click += BtnSave_Click;
             BtnCancel.Click += (s, e) => this.DialogResult = false;
         }
@@ -81,6 +64,11 @@ namespace phone_utils
 
             // close
             this.DialogResult = true;
+        }
+
+        private void ChkPlaybackAudio_Checked(object sender, RoutedEventArgs e)
+        {
+
         }
     }
 }

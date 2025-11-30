@@ -1,65 +1,150 @@
 <Window x:Class="phone_utils.ScrcpySettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Scrcpy Settings" Height="420" Width="520"
+        Title="Scrcpy Settings" Height="420" Width="350"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppBackgroundColor}">
     <Window.Resources>
+        <!-- Modern Button Style -->
         <Style x:Key="ModernButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource ButtonBackground}"/>
             <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="Padding" Value="6,4"/>
             <Setter Property="Margin" Value="4"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#d3d3d3"/>
+                                <Setter Property="Foreground" Value="#777"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
-        <Style TargetType="TextBlock"><Setter Property="Foreground" Value="White"/></Style>
-        <Style TargetType="Label"><Setter Property="Foreground" Value="White"/></Style>
-        <Style TargetType="CheckBox"><Setter Property="Foreground" Value="White"/></Style>
+
+        <!-- Compact Toggle CheckBox Style -->
+        <Style x:Key="ToggleCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="border" Background="#444" CornerRadius="6" BorderThickness="0" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#4CAF50"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#555"/>
+                                <Setter Property="Foreground" Value="#aaa"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Compact TextBox Style: match ScrcpyControl (height, centered content) -->
         <Style TargetType="TextBox">
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Background" Value="#222"/>
             <Setter Property="BorderBrush" Value="#444"/>
             <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="Margin" Value="2,2,0,2"/>
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+
+        <Style TargetType="Label">
+            <Setter Property="Foreground" Value="White"/>
         </Style>
     </Window.Resources>
 
-    <Grid Margin="10">
-        <Border Background="#2a2a2a" CornerRadius="8" Padding="12" BorderBrush="Gray" BorderThickness="1">
-            <StackPanel>
-                <TextBlock Text="Scrcpy Settings" FontSize="16" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+    <Grid Margin="8">
+        <Border Background="#2a2a2a" CornerRadius="8" Padding="10" BorderBrush="Gray" BorderThickness="1">
+            <DockPanel LastChildFill="True">
+                <TextBlock Text="Scrcpy Settings" FontSize="16" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" Margin="0,0,0,8" DockPanel.Dock="Top"/>
 
-                <WrapPanel Margin="0,0,0,8">
-                    <CheckBox x:Name="ChkAudioOnly" Content="Audio Only" Margin="4"/>
-                    <CheckBox x:Name="ChkNoAudio" Content="No Audio" Margin="4"/>
-                    <CheckBox x:Name="ChkPlaybackAudio" Content="Playback Audio" Margin="4"/>
-                </WrapPanel>
+                <!-- Compact two-column grid with Auto + fixed column so textboxes match column 2 -->
+                <Grid Margin="0" VerticalAlignment="Top" HorizontalAlignment="Left">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="180"/>
+                    </Grid.ColumnDefinitions>
 
-                <WrapPanel Margin="0,0,0,8">
-                    <CheckBox x:Name="Chkaudiobuffer" Content="Audio buffer Size:" Margin="4"/>
-                    <TextBox x:Name="TxtAudioBuffer" Width="60" Text="50" Margin="4"/>
-                    <CheckBox x:Name="Chkvideobuffer" Content="Video buffer Size:" Margin="4"/>
-                    <TextBox x:Name="TxtVideoBuffer" Width="60" Text="50" Margin="4"/>
-                </WrapPanel>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <!-- buttons row -->
+                    </Grid.RowDefinitions>
 
-                <WrapPanel Margin="0,0,0,8">
-                    <CheckBox x:Name="ChkStayAwake" Content="Stay Awake" Margin="4"/>
-                    <CheckBox x:Name="ChkTurnScreenOff" Content="Turn Screen Off" Margin="4"/>
-                    <CheckBox x:Name="ChkLockAfterExit" Content="Lock Phone After Closing" Margin="4"/>
-                    <CheckBox x:Name="ChkTop" Content="Always on top" Margin="4"/>
-                </WrapPanel>
+                    <!-- Row 0: Audio Only | Stay Awake -->
+                    <CheckBox x:Name="ChkAudioOnly" Content="Audio Only" Grid.Row="0" Grid.Column="0" Style="{StaticResource ToggleCheckBoxStyle}"/>
+                    <CheckBox x:Name="ChkStayAwake" Content="Stay Awake" Grid.Row="0" Grid.Column="1" Style="{StaticResource ToggleCheckBoxStyle}"/>
 
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <TextBlock Text="Limit Max Size:" VerticalAlignment="Center" Margin="4" Width="110"/>
-                    <CheckBox x:Name="ChkMaxSize" Margin="4" VerticalAlignment="Center"/>
-                    <TextBox x:Name="TxtMaxSize" Width="80" Text="2440" Margin="4"/>
-                </StackPanel>
+                    <!-- Row 1: No Audio | Turn Screen Off -->
+                    <CheckBox x:Name="ChkNoAudio" Content="No Audio" Grid.Row="1" Grid.Column="0" Style="{StaticResource ToggleCheckBoxStyle}"/>
+                    <CheckBox x:Name="ChkTurnScreenOff" Content="Turn Screen Off" Grid.Row="1" Grid.Column="1" Style="{StaticResource ToggleCheckBoxStyle}"/>
 
-                <StackPanel Orientation="Horizontal" Margin="0,6,0,0" HorizontalAlignment="Right">
-                    <Button x:Name="BtnSave" Content="Save" Width="100" Height="32" Style="{StaticResource ModernButtonStyle}"/>
-                    <Button x:Name="BtnCancel" Content="Cancel" Width="100" Height="32" Style="{StaticResource ModernButtonStyle}"/>
-                </StackPanel>
-            </StackPanel>
+                    <!-- Row 2: Playback Audio | Lock Phone After Closing -->
+                    <CheckBox x:Name="ChkPlaybackAudio" Content="Playback Audio" Grid.Row="2" Grid.Column="0" Style="{StaticResource ToggleCheckBoxStyle}" Checked="ChkPlaybackAudio_Checked"/>
+                    <CheckBox x:Name="ChkLockAfterExit" Content="Lock Phone After Closing" Grid.Row="2" Grid.Column="1" Style="{StaticResource ToggleCheckBoxStyle}"/>
+
+                    <!-- Row 3: Always on top | Enable Global Hotkeys -->
+                    <CheckBox x:Name="ChkTop" Content="Always on top" Grid.Row="3" Grid.Column="0" Style="{StaticResource ToggleCheckBoxStyle}"/>
+                    <CheckBox x:Name="ChkEnableHotkeys" Content="Enable Global Hotkeys" Grid.Row="3" Grid.Column="1" Style="{StaticResource ToggleCheckBoxStyle}"/>
+
+                    <!-- Row 4: Audio buffer Size: | textbox (checkbox and textbox directly adjacent) -->
+                    <CheckBox x:Name="Chkaudiobuffer" Content="Audio buffer Size:" Grid.Row="4" Grid.Column="0" Style="{StaticResource ToggleCheckBoxStyle}"/>
+                    <TextBox x:Name="TxtAudioBuffer" Grid.Row="4" Grid.Column="1" Width="170" Text="50" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+
+                    <!-- Row 5: Video buffer Size: | textbox -->
+                    <CheckBox x:Name="Chkvideobuffer" Content="Video buffer Size:" Grid.Row="5" Grid.Column="0" Style="{StaticResource ToggleCheckBoxStyle}"/>
+                    <TextBox x:Name="TxtVideoBuffer" Grid.Row="5" Grid.Column="1" Width="170" Text="50" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+
+                    <!-- Row 6: Limit Max Size: | textbox -->
+                    <CheckBox x:Name="ChkMaxSize" Content="Limit Max Size:" Grid.Row="6" Grid.Column="0" IsChecked="False" Style="{StaticResource ToggleCheckBoxStyle}"/>
+                    <TextBox x:Name="TxtMaxSize" Grid.Row="6" Grid.Column="1" Width="170" Text="2440" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+
+                    <!-- Row 7: Buttons placed under second column so they are not flush to the window edge -->
+                    <StackPanel Orientation="Horizontal" Grid.Row="7" HorizontalAlignment="Right" Margin="0,10,42,-2" Grid.ColumnSpan="2">
+                        <Button x:Name="BtnSave" Content="Save" Width="96" Height="30" Style="{StaticResource ModernButtonStyle}"/>
+                        <Button x:Name="BtnCancel" Content="Cancel" Width="96" Height="30" Style="{StaticResource ModernButtonStyle}"/>
+                    </StackPanel>
+                </Grid>
+            </DockPanel>
         </Border>
     </Grid>
 </Window>
