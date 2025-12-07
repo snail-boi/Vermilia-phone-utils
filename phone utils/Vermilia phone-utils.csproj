@@ -113,4 +113,9 @@
     <PackageReference Include="taglib-sharp-netstandard2.0" Version="2.1.0" />
   </ItemGroup>
 
+  <!-- Reference Windows Forms runtime via framework reference to get NotifyIcon types without enabling UseWindowsForms -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+  </ItemGroup>
+
 </Project>

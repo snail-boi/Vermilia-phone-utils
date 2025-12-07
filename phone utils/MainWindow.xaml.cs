@@ -41,6 +41,9 @@ namespace phone_utils
         // Track consecutive failed wifi connect attempts per configured Wi‑Fi target
         private readonly Dictionary<string, int> _wifiConnectFailures = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private const int WifiFailThreshold = 3;
+
+        // Tray icon manager (separate class in its own file)
+        private TrayIconManager _trayIconManager;
         #endregion
 
         #region Initialization
@@ -93,6 +96,13 @@ namespace phone_utils
                 connectionCheckTimer.Start();
 
             // Note: Autorun start logic moved to TryAutorunStartAsync, which runs after initial device detection
+
+            // Initialize tray icon manager
+            try
+            {
+                _trayIconManager = new TrayIconManager(this);
+            }
+            catch { }
         }
 
         private async void MainWindow_Loaded(object? sender, RoutedEventArgs e)
@@ -111,6 +121,35 @@ namespace phone_utils
             }
         }
         #endregion
+
+        // Public helper used by the tray icon to start scrcpy for the current device using config arguments
+        public void StartScrcpyFromTray()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(currentDevice))
+                {
+                    MessageBox.Show("No device connected!", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (!File.Exists(Config.Paths.Scrcpy))
+                {
+                    MessageBox.Show("scrcpy.exe not found!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // Prefer explicit autorun arguments if present, fall back to AutoUsbStart, otherwise no extra args
+                string cfgArgs = Config?.AutorunStart?.Arguments ?? Config?.AutoUsbStart?.Arguments ?? string.Empty;
+                var args = $"-s {currentDevice} {cfgArgs}".Trim();
+
+                StartScrcpyProcessForDevice(currentDevice, args);
+            }
+            catch (Exception ex)
+            {
+                Debugger.show("StartScrcpyFromTray exception: " + ex.Message);
+            }
+        }
 
         #region Autorun
         // Attempt to autorun scrcpy: prefer USB then Wi‑Fi
@@ -907,7 +946,6 @@ namespace phone_utils
         private async Task UpdateCurrentSongAsync()
         {
             Debugger.show("Updating current song from Musicolet...");
-
             string output = await AdbHelper.RunAdbCaptureAsync($"-s {currentDevice} shell dumpsys media_session");
 
             bool foundActiveSong = false;
