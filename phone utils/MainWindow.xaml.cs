@@ -341,18 +341,19 @@ namespace phone_utils
                             bool resolved = await TryResolveDeviceIpAndReconnectAsync();
 
                             // reset counter either way to avoid repeated ARP spam
-                            _wifiConnectFailures[Config.SelectedDeviceWiFi] = 0;
-
                             if (resolved)
                             {
+                                // Clear failure counter only when discovery succeeded to avoid losing the failure history
+                                _wifiConnectFailures[Config.SelectedDeviceWiFi] = 0;
+
                                 // re-query devices after resolving
                                 devices = await AdbHelper.RunAdbCaptureAsync("devices");
                                 deviceList = devices.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                             }
                             else
                             {
-                                Debugger.show("ARP discovery returned nothing; assuming device unavailable for now.");
-                                // nothing found — don't try ARP again until failures accumulate
+                                Debugger.show("ARP discovery returned nothing; keeping failure counter so discovery can be retried later.");
+                                // keep the failure counter as-is so we won't silently forget repeated failures
                             }
                         }
                         else
