@@ -5,6 +5,46 @@
         WindowStartupLocation="CenterOwner"
         Background="#111111">
     <Window.Resources>
+        <!-- Use app-level DynamicResources for button colors (do not define local brushes here) -->
+        <!-- Modern Button Style copied/adapted from MainWindow.xaml and referencing DynamicResource keys -->
+        <Style x:Key="ModernButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource ButtonBackground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#d3d3d3"/>
+                                <Setter Property="Foreground" Value="#777"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Text styles to be consistent with main window visuals -->
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontSize" Value="14"/>
@@ -18,24 +58,8 @@
             <Setter Property="Padding" Value="5"/>
             <Setter Property="Margin" Value="0,0,0,10"/>
         </Style>
-        <Style TargetType="Button">
-            <Setter Property="Background" Value="#5539cc"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="10,5"/>
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </Window.Resources>
+
     <Grid Margin="20">
         <StackPanel>
             <TextBlock Text="Wireless Debugging Setup (Android 11+)" FontSize="18" FontWeight="Bold" Margin="0,0,0,20"/>
@@ -54,8 +78,8 @@
             <TextBlock x:Name="TxtStatus" Foreground="Yellow" Margin="0,10,0,10"/>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-                <Button Content="Cancel" Click="BtnCancel_Click" Background="#444"/>
-                <Button Content="Pair &amp; Connect" Click="BtnPair_Click"/>
+                <Button Content="Cancel" Click="BtnCancel_Click" Style="{StaticResource ModernButtonStyle}"/>
+                <Button Content="Pair &amp; Connect" Click="BtnPair_Click" Style="{StaticResource ModernButtonStyle}"/>
             </StackPanel>
         </StackPanel>
     </Grid>
