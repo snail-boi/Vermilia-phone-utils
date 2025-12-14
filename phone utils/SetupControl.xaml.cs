@@ -282,6 +282,7 @@ namespace phone_utils
                 string ip = await GetDeviceIpAsync(serial);
                 string tcpIpWithPort;
                 bool saveWithWifi = false;
+                string debugPort = ""; // Do not default to 5555; use empty until wireless pairing provides a port
 
                 if (string.IsNullOrEmpty(ip))
                 {
@@ -303,23 +304,38 @@ namespace phone_utils
                 {
                     // Ask user if they want to save with Wi-Fi or USB only, with security warning
                     var result = MessageBox.Show(
-                        $"A Wi-Fi IP was detected for this device: {ip}:5555\n\nDo you want to save this device with Wi-Fi (IP) or USB only?\n\nWarning: Using IP on an unsecured network can be dangerous. Only use Wi-Fi connection if you trust your network.",
-                        "Save Device With Wi-Fi?",
+                        $"A Wi-Fi IP was detected for this device: {ip}\n\nDo you want to enable Wireless Debugging (Android 11+)?\n\nYes: Setup Wireless Debugging (Pairing required)\nNo: Save as USB only\nCancel: Abort",
+                        "Wireless Debugging Setup",
                         MessageBoxButton.YesNoCancel,
-                        MessageBoxImage.Warning
+                        MessageBoxImage.Question
                     );
+
                     if (result == MessageBoxResult.Yes)
                     {
-                        tcpIpWithPort = $"{ip}:5555";
-                        saveWithWifi = true;
-                        Debugger.show($"Device IP: {ip}, TCP: {tcpIpWithPort} (Wi-Fi chosen)");
+                        // Wireless Debugging Flow
+                        var pairingWindow = new WirelessPairingWindow(ip);
+                        pairingWindow.Owner = Window.GetWindow(this);
+                        if (pairingWindow.ShowDialog() == true)
+                        {
+                            debugPort = pairingWindow.PairedPort;
+                            tcpIpWithPort = string.IsNullOrEmpty(debugPort) ? ip : $"{ip}:{debugPort}";
+                            saveWithWifi = true;
+                            Debugger.show($"Wireless Debugging enabled. IP: {ip}, Port: {debugPort}");
+                        }
+                        else
+                        {
+                            // User cancelled pairing, fallback to USB only
+                            tcpIpWithPort = "None";
+                            Debugger.show("Wireless pairing cancelled. Saving as USB only.");
+                        }
                     }
                     else if (result == MessageBoxResult.No)
                     {
+                        // User chose No: save as USB only
                         tcpIpWithPort = "None";
-                        Debugger.show($"Device IP: {ip}, TCP: {tcpIpWithPort} (USB only chosen)");
+                        Debugger.show("User chose not to configure wireless debugging. Saving as USB only.");
                     }
-                    else // Cancel
+                    else // Cancel -> abort operation
                     {
                         return;
                     }
@@ -346,9 +362,10 @@ namespace phone_utils
                     // Save MAC info if available
                     MacAddress = string.IsNullOrWhiteSpace(activeMac) ? string.Empty : activeMac,
                     FactoryMac = string.IsNullOrWhiteSpace(factoryMac) ? string.Empty : factoryMac,
-                    MacRandomizationEnabled = randomEnabled
+                    MacRandomizationEnabled = randomEnabled,
+                    DebugPort = debugPort // Save the port if pairing occurred; otherwise empty
                 };
-                Debugger.show("New device created: " + newDevice.UsbSerial + ", Name: " + newDevice.Name + ", MAC: " + newDevice.MacAddress);
+                Debugger.show("New device created: " + newDevice.UsbSerial + ", Name: " + newDevice.Name + ", MAC: " + newDevice.MacAddress + ", Port: " + newDevice.DebugPort);
 
                 // Remove existing device with same serial
                 var existing = _config.SavedDevices.FirstOrDefault(d => d.UsbSerial == serial);

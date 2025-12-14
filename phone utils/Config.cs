@@ -41,6 +41,10 @@ namespace phone_utils
         // New: whether device reports MAC randomization enabled
         public bool MacRandomizationEnabled { get; set; } = false;
 
+        // New: store the debug port for Wireless Debugging (Android 11+)
+        // Do not default to 5555; leave empty so wireless pairing determines the port.
+        public string DebugPort { get; set; } = "";
+
         public override string ToString() => string.IsNullOrWhiteSpace(Name) ? base.ToString() : Name;
     }
 

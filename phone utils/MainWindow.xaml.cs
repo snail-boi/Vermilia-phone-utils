@@ -461,7 +461,8 @@ namespace phone_utils
                     string foundIp = await DiscoverIpByMacAsync(mac);
                     if (!string.IsNullOrEmpty(foundIp))
                     {
-                        string newTcp = foundIp.Contains(":") ? foundIp : foundIp + ":5555";
+                        // If a debug port was saved (from wireless pairing), append it. Do NOT default to 5555.
+                        string newTcp = foundIp.Contains(":") ? foundIp : (string.IsNullOrEmpty(saved.DebugPort) ? foundIp : $"{foundIp}:{saved.DebugPort}");
 
                         Debugger.show($"Discovered device IP {foundIp} for MAC {mac}, updating config to {newTcp}");
 
@@ -652,11 +653,7 @@ namespace phone_utils
 
             Debugger.show($"USB device {currentDevice} connected");
 
-            if (Config.SelectedDeviceWiFi != "None")
-            {
-                Debugger.show("Setting up Wi-Fi over USB...");
-                await SetupWifiOverUsbAsync(deviceList);
-            }
+            // Note: Do not attempt legacy tcpip 5555 setup here. Wireless Debugging pairing should be used instead.
 
             // Auto USB start: only start on a fresh connect event
             try
@@ -690,27 +687,6 @@ namespace phone_utils
             if (ContentHost.Content == null) ShowNotificationsAsDefault();
 
             return true;
-        }
-
-        private async Task SetupWifiOverUsbAsync(string[] deviceList)
-        {
-            if (string.IsNullOrEmpty(Config.SelectedDeviceWiFi)) return;
-
-            bool wifiAlreadyConnected = deviceList.Any(l => l.StartsWith(Config.SelectedDeviceWiFi));
-            if (wifiAlreadyConnected)
-            {
-                Debugger.show("Wi-Fi device already connected via USB setup");
-                return;
-            }
-
-            Debugger.show("Enabling TCP/IP mode on USB device");
-            await AdbHelper.RunAdbAsync($"-s {Config.SelectedDeviceUSB} tcpip 5555");
-            var connectResult = await AdbHelper.RunAdbCaptureAsync($"connect {Config.SelectedDeviceWiFi}");
-            Debugger.show($"Wi-Fi connection result: {connectResult}");
-
-            StatusText.Text += connectResult.Contains("connected")
-                ? " | Wi-Fi port has been set up."
-                : " | Failed to connect Wi-Fi device.";
         }
 
         private async Task<bool> CheckWifiDeviceAsync(string[] deviceList)

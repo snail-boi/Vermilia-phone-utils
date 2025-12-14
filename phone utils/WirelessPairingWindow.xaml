@@ -1,0 +1,62 @@
+<Window x:Class="phone_utils.WirelessPairingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Wireless Debugging Pairing" Height="450" Width="600"
+        WindowStartupLocation="CenterOwner"
+        Background="#111111">
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#222"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#444"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#5539cc"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="20">
+        <StackPanel>
+            <TextBlock Text="Wireless Debugging Setup (Android 11+)" FontSize="18" FontWeight="Bold" Margin="0,0,0,20"/>
+            
+            <TextBlock Text="1. On your phone, go to Developer Options."/>
+            <TextBlock Text="2. Enable 'Wireless debugging'."/>
+            <TextBlock Text="3. Tap on 'Wireless debugging' text to open its settings."/>
+            <TextBlock Text="4. Tap 'Pair device with pairing code'."/>
+            
+            <TextBlock Text="Enter the IP address and Port shown on the pairing dialog (e.g., 192.168.1.x:yyyyy):" Margin="0,10,0,5"/>
+            <TextBox x:Name="TxtPairingAddress" Text="{Binding PairingAddress}"/>
+            
+            <TextBlock Text="Enter the 6-digit Wi-Fi pairing code:" Margin="0,10,0,5"/>
+            <TextBox x:Name="TxtPairingCode" Text="{Binding PairingCode}"/>
+
+            <TextBlock x:Name="TxtStatus" Foreground="Yellow" Margin="0,10,0,10"/>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                <Button Content="Cancel" Click="BtnCancel_Click" Background="#444"/>
+                <Button Content="Pair &amp; Connect" Click="BtnPair_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>
