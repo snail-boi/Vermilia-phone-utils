@@ -13,6 +13,26 @@ namespace phone_utils
     ///     so don't touch this shit ever unless absolutely needed
     /// </summary>
 
+
+    /// this will be rewritten to use ffmpeg and pull the files for cover art
+    /// then create a cache to store it and a button to clear cache
+    /// how we will do it consists of a couple of things things
+    /// add a button in setup to cache a full folder + recursion // this allows for all songs to be auto cached if the user wants it / not prefered
+    /// the main way should be by detecting the song that is currently playing and pulling that into a temp folder within cache (cache sould be stored in appdata)
+    /// then we use ffmpeg to extract the cover art we then make sure it gets prioritized over repulling the song
+    /// we also make a small file that contains data about what songs don't have coverart to make sure that we don't pull many times
+
+    ///so exact plan is
+    /// 1 check if the songs coverart exists in the cache folder
+    /// 2 check if remote folder contains a cover.png/jpg in a folder a layer down from the main folder
+    /// if it does then make sure to save that all songs in that folder get associated with that cover art
+    /// 3 if not found then pull the song via adb to a temp folder and use ffmpeg to extract the cover art
+    /// 4 if no cover art is found then we make a note of that in a text file to avoid repulling
+    /// 5 we also need to add a button to clear cache in settings
+    /// 6 we also need to make sure that the cache folder is created on first run
+    /// 7 we also need to make sure that the cache folder is cleaned up on uninstall
+    /// 8 we also need to make sure that the cache folder is limited in size and old files are deleted when the limit is reached
+
     // MediaController encapsulates all SMTC / MediaPlayer logic
     internal class MediaController
     {
