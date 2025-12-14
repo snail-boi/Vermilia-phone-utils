@@ -1,6 +1,8 @@
 using Newtonsoft.Json;
 using System.IO;
 using System.Windows;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace phone_utils
 {
@@ -29,7 +31,43 @@ namespace phone_utils
         public string Name { get; set; } = string.Empty;
         public string UsbSerial { get; set; } = string.Empty;
         public string TcpIp { get; set; } = string.Empty;
-        public string Pincode { get; set; } = string.Empty;
+
+        // Keep JSON field name `Pincode` for compatibility but store encrypted value here.
+        [JsonProperty("Pincode")]
+        public string PincodeEncrypted { get; set; } = string.Empty;
+
+        // Runtime property that returns the decrypted pincode. Not serialized.
+        [JsonIgnore]
+        public string Pincode
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(PincodeEncrypted))
+                    return string.Empty;
+
+                try
+                {
+                    return ConfigManager.DecryptString(PincodeEncrypted);
+                }
+                catch
+                {
+                    // If decryption fails, assume the stored value was plaintext (legacy).
+                    return PincodeEncrypted;
+                }
+            }
+            set
+            {
+                if (string.IsNullOrEmpty(value))
+                {
+                    PincodeEncrypted = string.Empty;
+                }
+                else
+                {
+                    PincodeEncrypted = ConfigManager.EncryptString(value);
+                }
+            }
+        }
+
         public DateTime LastConnected { get; set; } = DateTime.Now;
 
         // New: store the device's current Wi-Fi MAC (colon-separated, lower-case)
@@ -123,7 +161,41 @@ namespace phone_utils
         public string SelectedDeviceUSB { get; set; } = string.Empty;
         public string SelectedDeviceName { get; set; } = string.Empty;
         public string SelectedDeviceWiFi { get; set; } = string.Empty;
-        public string SelectedDevicePincode { get; set; } = string.Empty;
+
+        // Keep the JSON field name for backward compatibility but store encrypted value
+        [JsonProperty("SelectedDevicePincode")]
+        public string SelectedDevicePincodeEncrypted { get; set; } = string.Empty;
+
+        [JsonIgnore]
+        public string SelectedDevicePincode
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(SelectedDevicePincodeEncrypted))
+                    return string.Empty;
+
+                try
+                {
+                    return ConfigManager.DecryptString(SelectedDevicePincodeEncrypted);
+                }
+                catch
+                {
+                    // If decryption fails, assume stored value was plaintext
+                    return SelectedDevicePincodeEncrypted;
+                }
+            }
+            set
+            {
+                if (string.IsNullOrEmpty(value))
+                {
+                    SelectedDevicePincodeEncrypted = string.Empty;
+                }
+                else
+                {
+                    SelectedDevicePincodeEncrypted = ConfigManager.EncryptString(value);
+                }
+            }
+        }
     }
 
     public class PathsConfig
@@ -171,6 +243,28 @@ namespace phone_utils
 
     public static class ConfigManager
     {
+        // Encrypts a string using DPAPI (CurrentUser) and returns base64
+        public static string EncryptString(string plain)
+        {
+            if (string.IsNullOrEmpty(plain))
+                return string.Empty;
+
+            byte[] plainBytes = Encoding.UTF8.GetBytes(plain);
+            byte[] encrypted = ProtectedData.Protect(plainBytes, null, DataProtectionScope.CurrentUser);
+            return Convert.ToBase64String(encrypted);
+        }
+
+        // Decrypts a base64 string produced by EncryptString
+        public static string DecryptString(string encryptedBase64)
+        {
+            if (string.IsNullOrEmpty(encryptedBase64))
+                return string.Empty;
+
+            byte[] encrypted = Convert.FromBase64String(encryptedBase64);
+            byte[] decrypted = ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
+            return Encoding.UTF8.GetString(decrypted);
+        }
+
         public static AppConfig Load(string path)
         {
             try
@@ -213,6 +307,56 @@ namespace phone_utils
                         new ThemesConfig { Name = "White", Foreground = "#FF000000", Background = "#FFFFFFFF", Hover = "#FFC8C8C8", BackgroundColor = "#111111"},
                         new ThemesConfig { Name = "Rissoe", Foreground = "#FF82FF5E", Background = "#FF0743A0", Hover = "#FF003282" , BackgroundColor = "#111111"}
                     };
+                }
+
+                // Migrate any legacy plaintext pincode values to encrypted form
+                if (config.SavedDevices != null)
+                {
+                    foreach (var dev in config.SavedDevices)
+                    {
+                        if (string.IsNullOrEmpty(dev.PincodeEncrypted))
+                            continue;
+
+                        try
+                        {
+                            // Try to decrypt; if this succeeds it's already encrypted and fine
+                            var _ = DecryptString(dev.PincodeEncrypted);
+                        }
+                        catch
+                        {
+                            // Decryption failed -> assume value is plaintext; encrypt it and store back
+                            try
+                            {
+                                dev.Pincode = dev.PincodeEncrypted; // setter will encrypt
+                            }
+                            catch
+                            {
+                                // ignore any further failures
+                            }
+                        }
+                    }
+                }
+
+                // Migrate SelectedDevicePincode (legacy plaintext) to encrypted form
+                if (!string.IsNullOrEmpty(config.SelectedDevicePincodeEncrypted))
+                {
+                    try
+                    {
+                        // If this decrypts successfully, it's already encrypted
+                        var _ = DecryptString(config.SelectedDevicePincodeEncrypted);
+                    }
+                    catch
+                    {
+                        // Decryption failed -> assume plaintext, encrypt via setter
+                        try
+                        {
+                            config.SelectedDevicePincode = config.SelectedDevicePincodeEncrypted;
+                        }
+                        catch
+                        {
+                            // ignore
+                        }
+                    }
                 }
 
                 return config;
