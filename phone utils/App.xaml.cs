@@ -13,13 +13,6 @@ namespace phone_utils
     //path's will also change to reflect the new name
     // configs will now be found in snail-boi/new-app-name/ to provide compatibility with future apps and projects
     // also the repo name will change
-
-
-    /// things to change 
-    /// go from tcpip to wireless debugging
-    /// save debug port to config per device
-    /// remove stupid Saveddevices from config and just save the last active deice name (removes the need for duplicates)
-    /// first try mdns to find pottentialy save wether it supports it
     public partial class App : Application
     {
         public static readonly string CurrentVersion = "v1.2-beta21";
