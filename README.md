@@ -1,3 +1,5 @@
+this is an older version that still uses the old tcp/ip method of wireless connecting
+
 pls consider donating to my kofi
 https://ko-fi.com/snailboi
 
