@@ -153,6 +153,7 @@ namespace phone_utils
                 SaveIndex();
                 SaveFolderIndex();
                 SaveNoCover();
+                Directory.CreateDirectory(Path.Combine(cachePath, "temp"));
 
                 Debugger.show("Cleared cover cache");
             }

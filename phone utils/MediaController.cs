@@ -49,6 +49,9 @@ namespace phone_utils
 
         private readonly CoverCacheManager cacheManager;
 
+        // Make remoteRoot configurable via config (FileSync.RemoteDir). Fallback to previous hardcoded path.
+        private readonly string remoteRoot;
+
         public MediaController(Dispatcher dispatcher, Func<string> getCurrentDevice, Func<Task> updateCurrentSongCallback)
         {
             this.dispatcher = dispatcher;
@@ -58,13 +61,26 @@ namespace phone_utils
             // Initialize cache manager using config values from expected location
             try
             {
-                var cfgPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Phone Utils", "config.json");
-                var cfg = ConfigManager.Load(cfgPath);
-                cacheManager = new CoverCacheManager(cfg.Paths.FfmpegPath, cfg.Paths.CoverCachePath);
+                var ConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Phone Utils", "config.json");
+                var Config = ConfigManager.Load(ConfigPath);
+                cacheManager = new CoverCacheManager(Config.Paths.FfmpegPath, Config.Paths.CoverCachePath);
+
+                // Read remote root from config FileSync.RemoteDir if present
+                if (Config != null && Config.FileSync != null && !string.IsNullOrWhiteSpace(Config.FileSync.RemoteDir))
+                {
+                    remoteRoot = Config.FileSync.RemoteDir;
+                }
+                else
+                {
+                    // previous hardcoded default
+                    remoteRoot = "";
+                }
             }
             catch (Exception ex)
             {
                 Debugger.show("Failed to initialize CoverCacheManager: " + ex.Message);
+                // ensure remoteRoot has a value even if config load failed
+                remoteRoot = "";
             }
         }
 
@@ -313,8 +329,8 @@ namespace phone_utils
                 }
             }
 
-            // Hardcoded remote folder root as requested
-            string remoteRoot = "/storage/emulated/0/Download/YTDLnis/Audio";
+            // Use configurable remote root (populated from config at construction time)
+            string localRemoteRoot = remoteRoot;
             string[] audioExtensions = { ".mp3", ".flac", ".wav", ".m4a", ".ogg", ".opus" };
             string[] imageExtensions = { ".webp", ".png", ".jpg", ".jpeg" };
 
@@ -331,7 +347,7 @@ namespace phone_utils
                 }
 
                 // Use find to get full file paths under remoteRoot
-                var findOutput = await AdbHelper.RunAdbCaptureAsync($"-s {device} shell find \"{remoteRoot}\" -type f");
+                var findOutput = await AdbHelper.RunAdbCaptureAsync($"-s {device} shell find \"{localRemoteRoot}\" -type f");
                 if (string.IsNullOrWhiteSpace(findOutput))
                 {
                     Debugger.show("No output from remote find");

@@ -1049,7 +1049,7 @@ namespace phone_utils
             }
             else
             {
-                ContentHost.Content = new SettingsControl(this);
+                ContentHost.Content = new SettingsControl(this, currentDevice);
             }
         }
 

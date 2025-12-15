@@ -11,6 +11,7 @@ namespace phone_utils
     {
         private readonly MainWindow _main;
         private AppConfig _config;
+        private string _currentDevice;
         private readonly string configPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "Phone Utils",
@@ -20,10 +21,11 @@ namespace phone_utils
         private bool _isInitializing = true;
         private CoverCacheManager _coverCacheManager;
 
-        public SettingsControl(MainWindow main)
+        public SettingsControl(MainWindow main, string currentdevice)
         {
             InitializeComponent();
             _main = main;
+            _currentDevice = currentdevice;
 
             Debugger.show("SettingsControl initialized. Loading configuration from: " + configPath);
             _config = ConfigManager.Load(configPath);
@@ -49,6 +51,18 @@ namespace phone_utils
                 chkAutoUsb.Checked += ChkAutoUsbStart_Checked;
                 chkAutoUsb.Unchecked += ChkAutoUsbStart_Unchecked;
             }
+        }
+
+        private void BtnSetRemoteRoot_Click(object sender, RoutedEventArgs e)
+        {
+            var picker = new RemoteFolderPicker(_currentDevice);
+            picker.Owner = Window.GetWindow(this);
+            if (picker.ShowDialog() == true)
+            {
+                TxtMusicRemoteRoot.Text = picker.SelectedFolder;
+                _config.SpecialOptions.MusicRemoteRoot = picker.SelectedFolder;
+            }
+            SaveConfig(true);
         }
 
         private void BtnClearCoverCache_Click(object sender, RoutedEventArgs e)
@@ -145,6 +159,7 @@ namespace phone_utils
             ShutdownWarningEnabled.IsChecked = _config.BatteryWarningSettings.shutdownwarningenabled;
             FinalWarning.Text = _config.BatteryWarningSettings.shutdownwarning.ToString();
             EmergencyShutdown.IsChecked = _config.BatteryWarningSettings.emergencydisconnectenabled;
+            TxtMusicRemoteRoot.Text = _config.SpecialOptions.MusicRemoteRoot;
 
             // Update autorun checkbox state
             if (this.FindName("ChkAutorunStart") is CheckBox chkA) chkA.IsChecked = _config.AutorunStart != null && _config.AutorunStart.Enabled;
