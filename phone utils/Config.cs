@@ -206,6 +206,19 @@ namespace phone_utils
             "Resources",
             "adb.exe");
         public string Scrcpy { get; set; } = string.Empty;
+
+        // Path where installer will place ffmpeg
+        public string FfmpegPath { get; set; } = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Phone Utils",
+            "Resources",
+            "ffmpeg.exe");
+
+        // Path to cover cache
+        public string CoverCachePath { get; set; } = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Phone Utils",
+            "CoverCache");
     }
 
     public class FileSyncConfig

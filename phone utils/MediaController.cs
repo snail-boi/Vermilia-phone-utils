@@ -4,7 +4,10 @@ using Windows.Media;
 using Windows.Media.Playback;
 using Windows.Storage;
 using Windows.Storage.Streams;
-using CoverArt = TagLib;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Collections.Generic;
+using System;
 
 namespace phone_utils
 {
@@ -44,11 +47,25 @@ namespace phone_utils
         private readonly Func<Task> updateCurrentSongCallback; // optional callback to refresh song
         private string lastSMTCTitle;
 
+        private readonly CoverCacheManager cacheManager;
+
         public MediaController(Dispatcher dispatcher, Func<string> getCurrentDevice, Func<Task> updateCurrentSongCallback)
         {
             this.dispatcher = dispatcher;
             this.getCurrentDevice = getCurrentDevice;
             this.updateCurrentSongCallback = updateCurrentSongCallback;
+
+            // Initialize cache manager using config values from expected location
+            try
+            {
+                var cfgPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Phone Utils", "config.json");
+                var cfg = ConfigManager.Load(cfgPath);
+                cacheManager = new CoverCacheManager(cfg.Paths.FfmpegPath, cfg.Paths.CoverCachePath);
+            }
+            catch (Exception ex)
+            {
+                Debugger.show("Failed to initialize CoverCacheManager: " + ex.Message);
+            }
         }
 
         public void Initialize()
@@ -267,6 +284,23 @@ namespace phone_utils
             }
         }
 
+        private IEnumerable<string> TokenizeForMatch(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return Array.Empty<string>();
+            var matches = Regex.Matches(s.ToLowerInvariant(), @"[\p{L}\p{N}]{3,}");
+            return matches.Select(m => m.Value).Distinct();
+        }
+
+        private bool TokensMatchEnough(IEnumerable<string> titleTokens, IEnumerable<string> fileTokens)
+        {
+            var t = titleTokens.ToList();
+            var f = new HashSet<string>(fileTokens);
+            if (t.Count == 0) return false;
+            int match = t.Count(tok => f.Contains(tok));
+            // require at least half of tokens to match (tunable)
+            return match >= Math.Max(1, t.Count / 2);
+        }
+
         private async Task<TimeSpan?> SetSMTCImageAsync(string fileNameWithoutExtension, string artist)
         {
             if (mediaPlayer == null || smtcDisplayUpdater == null)
@@ -279,7 +313,8 @@ namespace phone_utils
                 }
             }
 
-            string folderPath = @"C:\Users\wille\Desktop\Audio";
+            // Hardcoded remote folder root as requested
+            string remoteRoot = "/storage/emulated/0/Download/YTDLnis/Audio";
             string[] audioExtensions = { ".mp3", ".flac", ".wav", ".m4a", ".ogg", ".opus" };
             string[] imageExtensions = { ".webp", ".png", ".jpg", ".jpeg" };
 
@@ -287,112 +322,130 @@ namespace phone_utils
             {
                 Debugger.show($"Starting cover art search for: '{fileNameWithoutExtension}' by '{artist}'");
 
-                // Offload file-system scanning and TagLib extraction to a background thread to avoid UI stalls
-                var matchingFiles = await Task.Run(() =>
+                var device = getCurrentDevice();
+                if (string.IsNullOrEmpty(device))
                 {
-                    var list = new List<string>();
-                    foreach (var ext in audioExtensions)
-                    {
-                        try
-                        {
-                            Debugger.show($"Searching for *{ext} files...");
-                            var files = Directory.GetFiles(folderPath, "*" + ext, SearchOption.AllDirectories)
-                                .Where(f => Path.GetFileNameWithoutExtension(f)
-                                .IndexOf(fileNameWithoutExtension, StringComparison.OrdinalIgnoreCase) >= 0)
-                                .ToList();
-
-                            Debugger.show($"Found {files.Count} files with extension {ext} that match the title token.");
-
-                            list.AddRange(files);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debugger.show($"Directory scan error for ext {ext}: {ex.Message}");
-                        }
-                    }
-
-                    Debugger.show($"Total partial matches found: {list.Count}");
-                    return list;
-                }).ConfigureAwait(false);
-
-                if (matchingFiles.Count == 0)
-                {
-                    Debugger.show("No audio files found (partial match failed)");
+                    Debugger.show("No device selected for cover lookup");
                     await SetDefaultImage().ConfigureAwait(false);
                     return null;
                 }
 
-                Debugger.show($"Filtering by artist: '{artist}' if available...");
-
-                List<string> artistMatches = new List<string>();
-
-                if (!string.IsNullOrEmpty(artist) && matchingFiles.Count > 1)
+                // Use find to get full file paths under remoteRoot
+                var findOutput = await AdbHelper.RunAdbCaptureAsync($"-s {device} shell find \"{remoteRoot}\" -type f");
+                if (string.IsNullOrWhiteSpace(findOutput))
                 {
-                    artistMatches = matchingFiles
-                        .Where(f => f.IndexOf(artist, StringComparison.OrdinalIgnoreCase) >= 0)
-                        .ToList();
-
-                    Debugger.show($"Artist-based matches: {artistMatches.Count}");
+                    Debugger.show("No output from remote find");
+                    await SetDefaultImage().ConfigureAwait(false);
+                    return null;
                 }
 
-                List<string> filesToProcess = artistMatches.Count > 0 ? artistMatches : matchingFiles;
-
-                Debugger.show($"Files to process for cover art lookup: {filesToProcess.Count}");
-
-                string filePathForDuration = filesToProcess.FirstOrDefault(f => audioExtensions.Contains(Path.GetExtension(f).ToLower()));
-
-                TimeSpan? duration = null;
-                if (filePathForDuration != null)
+                var lines = findOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                var allFiles = new List<string>();
+                foreach (var raw in lines)
                 {
-                    Debugger.show($"Attempting to read duration from: {filePathForDuration}");
-                    try
+                    var path = raw.Trim();
+                    if (string.IsNullOrEmpty(path)) continue;
+                    allFiles.Add(path);
+                }
+
+                // Filter audio files and perform tokenized matching
+                var titleTokens = TokenizeForMatch(fileNameWithoutExtension).ToList();
+                var candidates = allFiles.Where(p => audioExtensions.Contains(Path.GetExtension(p).ToLowerInvariant())).ToList();
+
+                var matched = new List<string>();
+                foreach (var candidate in candidates)
+                {
+                    var fn = Path.GetFileName(candidate);
+                    var nameNoExt = Path.GetFileNameWithoutExtension(fn);
+                    var fileTokens = TokenizeForMatch(nameNoExt);
+
+                    bool match = false;
+                    if (titleTokens.Any())
                     {
-                        // TagLib reads can be blocking; do on background thread
-                        duration = await Task.Run(() =>
+                        match = TokensMatchEnough(titleTokens, fileTokens);
+                    }
+                    else
+                    {
+                        match = nameNoExt.IndexOf(fileNameWithoutExtension, StringComparison.OrdinalIgnoreCase) >= 0;
+                    }
+
+                    if (match) matched.Add(candidate);
+                }
+
+                if (matched.Count == 0)
+                {
+                    Debugger.show("No candidates found on device for title token");
+                    await SetDefaultImage().ConfigureAwait(false);
+                    return null;
+                }
+
+                // Prefer artist matches if multiple
+                var artistMatches = new List<string>();
+                if (!string.IsNullOrEmpty(artist) && matched.Count > 1)
+                {
+                    artistMatches = matched.Where(c => c.IndexOf(artist, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+                }
+
+                var filesToProcess = artistMatches.Count > 0 ? artistMatches : matched;
+
+                // Rank candidates by a match score (exact title substring, token intersection, artist match),
+                // then by folder depth. This reduces incorrect picks where an unrelated file has embedded art.
+                var titleStr = fileNameWithoutExtension ?? string.Empty;
+                var ranked = filesToProcess
+                    .Select(p =>
+                    {
+                        var nameNoExt = Path.GetFileNameWithoutExtension(p);
+                        int score = 0;
+                        // exact substring match (strong)
+                        if (!string.IsNullOrEmpty(titleStr) && nameNoExt.IndexOf(titleStr, StringComparison.OrdinalIgnoreCase) >= 0)
+                            score += 100;
+
+                        // token intersection
+                        var fileTokens = TokenizeForMatch(nameNoExt).ToList();
+                        var tCount = titleTokens.Count;
+                        if (tCount > 0)
                         {
-                            try
-                            {
-                                var tagFile = CoverArt.File.Create(filePathForDuration);
-                                Debugger.show($"Read duration: {tagFile.Properties.Duration} from {filePathForDuration}");
-                                return tagFile.Properties.Duration;
-                            }
-                            catch (Exception ex)
-                            {
-                                Debugger.show($"TagLib failed to read duration for {filePathForDuration}: {ex.Message}");
-                                return (TimeSpan?)null;
-                            }
-                        }).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debugger.show($"Failed to read audio file duration: {ex.Message}");
-                    }
-                }
+                            int inter = fileTokens.Count(ft => titleTokens.Contains(ft));
+                            score += inter * 10;
+                        }
 
-                var sortedFiles = filesToProcess.OrderByDescending(f =>
+                        // artist match (moderate)
+                        if (!string.IsNullOrEmpty(artist) && p.IndexOf(artist, StringComparison.OrdinalIgnoreCase) >= 0)
+                            score += 50;
+
+                        // small boost for deeper paths
+                        int depth = p.Count(ch => ch == '/');
+                        score += Math.Min(depth, 10);
+
+                        return (path: p, score);
+                    })
+                    .OrderByDescending(x => x.score)
+                    .ThenByDescending(x => x.path.Count(ch => ch == '/'))
+                    .ToList();
+
+                filesToProcess = ranked.Select(r => r.path).Take(20).ToList(); // limit to top 20
+
+                Debugger.show($"Files to process for cover art lookup (ranked): {filesToProcess.Count}");
+
+                TimeSpan? duration = null; // we won't determine duration via TagLib anymore
+
+                foreach (var remotePath in filesToProcess)
                 {
-                    string fileDir = Path.GetDirectoryName(f);
-                    return !fileDir.Equals(folderPath, StringComparison.OrdinalIgnoreCase);
-                }).ToList();
+                    Debugger.show($"Processing remote file for cover art: {remotePath}");
 
-                Debugger.show($"Sorted files count: {sortedFiles.Count}");
-
-                foreach (var filePath in sortedFiles)
-                {
-                    Debugger.show($"Processing file for cover art: {filePath}");
-                    StorageFile imageFile = await TryGetCoverArtForFile(filePath, folderPath, imageExtensions).ConfigureAwait(false);
-
-                    if (imageFile != null)
+                    string imagePath = await cacheManager.GetImagePathForNowPlayingAsync(device, remotePath).ConfigureAwait(false);
+                    if (!string.IsNullOrEmpty(imagePath) && File.Exists(imagePath))
                     {
-                        Debugger.show($"Found image for {filePath}, assigning thumbnail.");
-                        // Thumbnail/DisplayUpdater likely needs to be used on a thread that supports COM/WinRT; do the assignment on the dispatcher
+                        Debugger.show($"Found cached image at {imagePath}, setting SMTC thumbnail");
+                        var imageFile = await StorageFile.GetFileFromPathAsync(imagePath).AsTask().ConfigureAwait(false);
+
                         await dispatcher.InvokeAsync(() =>
                         {
                             try
                             {
                                 smtcDisplayUpdater.Thumbnail = RandomAccessStreamReference.CreateFromFile(imageFile);
                                 smtcDisplayUpdater.Update();
-                                Debugger.show($"Thumbnail set from image file: {imageFile.Path}");
+                                Debugger.show($"Thumbnail set from cached file: {imagePath}");
                             }
                             catch (Exception ex)
                             {
@@ -400,16 +453,15 @@ namespace phone_utils
                             }
                         }).Task.ConfigureAwait(false);
 
-                        Debugger.show("SMTC image updated successfully");
                         return duration;
                     }
                     else
                     {
-                        Debugger.show($"No image found for {filePath}, continuing to next candidate.");
+                        Debugger.show($"No image returned for {remotePath}, continuing to next candidate");
                     }
                 }
 
-                Debugger.show("No embedded or folder images found for any candidate files. Falling back to default image.");
+                Debugger.show("No cover art found for any candidates; using default image");
                 await SetDefaultImage().ConfigureAwait(false);
                 return duration;
             }
@@ -419,117 +471,6 @@ namespace phone_utils
                 await SetDefaultImage().ConfigureAwait(false);
                 return null;
             }
-        }
-
-        private async Task<StorageFile> TryGetCoverArtForFile(string filePath, string folderPath, string[] imageExtensions)
-        {
-            string fileDirectory = Path.GetDirectoryName(filePath);
-            string fileName = Path.GetFileNameWithoutExtension(filePath);
-            bool isInSubfolder = !fileDirectory.Equals(folderPath, StringComparison.OrdinalIgnoreCase);
-
-            Debugger.show($"TryGetCoverArtForFile: file={filePath}, isInSubfolder={isInSubfolder}");
-
-            if (isInSubfolder)
-            {
-                string coverJpg = Path.Combine(fileDirectory, "cover.jpg");
-                string coverPng = Path.Combine(fileDirectory, "cover.png");
-
-                Debugger.show($"Checking for cover.jpg at: {coverJpg}");
-                if (File.Exists(coverJpg))
-                {
-                    Debugger.show("cover.jpg found, returning StorageFile");
-                    return await StorageFile.GetFileFromPathAsync(coverJpg).AsTask().ConfigureAwait(false);
-                }
-
-                Debugger.show($"Checking for cover.png at: {coverPng}");
-                if (File.Exists(coverPng))
-                {
-                    Debugger.show("cover.png found, returning StorageFile");
-                    return await StorageFile.GetFileFromPathAsync(coverPng).AsTask().ConfigureAwait(false);
-                }
-
-                Debugger.show("No direct cover.jpg/png in subfolder. Attempting TagLib extraction.");
-                var tagLibImage = await TryExtractCoverFromTagLib(filePath).ConfigureAwait(false);
-                if (tagLibImage != null)
-                {
-                    Debugger.show("TagLib provided embedded image for file.");
-                    return tagLibImage;
-                }
-                else
-                {
-                    Debugger.show("TagLib extraction returned no image for file.");
-                }
-            }
-            else
-            {
-                foreach (var imgExt in imageExtensions)
-                {
-                    string imagePath = Path.Combine(fileDirectory + "\\images", fileName + imgExt);
-                    Debugger.show($"Checking for image in images folder: {imagePath}");
-                    if (File.Exists(imagePath))
-                    {
-                        Debugger.show($"Found image at {imagePath}");
-                        return await StorageFile.GetFileFromPathAsync(imagePath).AsTask().ConfigureAwait(false);
-                    }
-                }
-
-                Debugger.show("No images in images subfolder. Attempting TagLib extraction for file.");
-                var tagLibImage = await TryExtractCoverFromTagLib(filePath).ConfigureAwait(false);
-                if (tagLibImage != null)
-                {
-                    Debugger.show("TagLib provided embedded image for file.");
-                    return tagLibImage;
-                }
-                else
-                {
-                    Debugger.show("TagLib extraction returned no image for file.");
-                }
-            }
-
-            Debugger.show("TryGetCoverArtForFile finished with no image.");
-            return null;
-        }
-
-        private async Task<StorageFile> TryExtractCoverFromTagLib(string filePath)
-        {
-            Debugger.show($"TryExtractCoverFromTagLib: attempting to extract from {filePath}");
-            try
-            {
-                // TagLib operations are blocking; run on a background thread
-                return await Task.Run(async () =>
-                {
-                    try
-                    {
-                        var tagFile = CoverArt.File.Create(filePath);
-                        if (tagFile.Tag.Pictures != null && tagFile.Tag.Pictures.Length > 0)
-                        {
-                            Debugger.show($"Embedded pictures count: {tagFile.Tag.Pictures.Length} for {filePath}");
-                            var pictureData = tagFile.Tag.Pictures[0].Data.Data;
-                            string tempPath = Path.Combine(Path.GetTempPath(), "smtc_cover.jpg");
-                            Debugger.show($"Writing embedded picture to temp: {tempPath}");
-                            await File.WriteAllBytesAsync(tempPath, pictureData).ConfigureAwait(false);
-                            Debugger.show($"Temp image written, retrieving StorageFile from path: {tempPath}");
-                            return await StorageFile.GetFileFromPathAsync(tempPath).AsTask().ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            Debugger.show("No embedded pictures in tag for this file.");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debugger.show($"TagLib extraction failed: {ex.Message}");
-                    }
-
-                    return null;
-                }).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                Debugger.show($"TagLib wrapper failed: {ex.Message}");
-            }
-
-            return null;
         }
 
         private async Task SetDefaultImage()

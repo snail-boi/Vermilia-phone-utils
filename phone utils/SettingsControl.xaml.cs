@@ -18,6 +18,7 @@ namespace phone_utils
         );
 
         private bool _isInitializing = true;
+        private CoverCacheManager _coverCacheManager;
 
         public SettingsControl(MainWindow main)
         {
@@ -26,6 +27,7 @@ namespace phone_utils
 
             Debugger.show("SettingsControl initialized. Loading configuration from: " + configPath);
             _config = ConfigManager.Load(configPath);
+            _coverCacheManager = new CoverCacheManager(_config.Paths.FfmpegPath, _config.Paths.CoverCachePath);
             ApplyConfigToUI();
             InitializeUpdateIntervalUI();
             _isInitializing = false;
@@ -34,6 +36,7 @@ namespace phone_utils
             // wire up buttons
             BtnAutorunStartSettings.Click += BtnAutorunStartSettings_Click;
             BtnAutoUsbStartSettings.Click += BtnAutoUsbStartSettings_Click;
+            BtnClearCoverCache.Click += BtnClearCoverCache_Click;
 
             // Use checkboxes for enabling autorun/autoUSB
             if (this.FindName("ChkAutorunStart") is CheckBox chkAutorun)
@@ -45,6 +48,20 @@ namespace phone_utils
             {
                 chkAutoUsb.Checked += ChkAutoUsbStart_Checked;
                 chkAutoUsb.Unchecked += ChkAutoUsbStart_Unchecked;
+            }
+        }
+
+        private void BtnClearCoverCache_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _coverCacheManager?.ClearCache();
+                MessageBox.Show("Cover cache cleared.", "Cache Cleared", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                Debugger.show("BtnClearCoverCache_Click failed: " + ex.Message);
+                MessageBox.Show($"Failed to clear cover cache: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

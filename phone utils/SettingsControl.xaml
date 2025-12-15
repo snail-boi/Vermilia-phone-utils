@@ -310,6 +310,11 @@
                                     Style="{StaticResource ColorButtonStyle}"/>
                         </StackPanel>
 
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,2">
+                            <TextBlock Text="Cover Art Cache:" Width="120" VerticalAlignment="Center" />
+                            <Button x:Name="BtnClearCoverCache" Width="150" Content="Clear Cover Cache" Click="BtnClearCoverCache_Click" Style="{StaticResource ModernButtonStyle}"/>
+                        </StackPanel>
+
                         <!-- Theme Selection and Management -->
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,2">
                             <TextBlock Text="Theme:" Width="100" VerticalAlignment="Center"/>
