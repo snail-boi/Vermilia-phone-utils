@@ -251,6 +251,13 @@ namespace phone_utils
             debugmode = Config.SpecialOptions != null && Config.SpecialOptions.DebugMode;
             MusicPresence = Config.SpecialOptions != null && Config.SpecialOptions.MusicPresence;
 
+            // Update media controller config at runtime so it picks up MusicRemoteRoot changes
+            try
+            {
+                mediaController?.UpdateConfig(Config);
+            }
+            catch { }
+
             Debugger.show($"Selected Wi-Fi device: {wifiDevice}");
             Debugger.show($"Dev mode: {devmode}, Debug mode: {debugmode}");
 

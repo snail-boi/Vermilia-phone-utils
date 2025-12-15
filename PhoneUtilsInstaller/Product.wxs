@@ -144,6 +144,12 @@
 							<File Id="SwresampleDll" Source="..\phone utils\bin\Release\net8.0-windows10.0.19041.0\Resources\swresample-5.dll"/>
 							<RegistryValue Root="HKCU" Key="Software\PhoneUtils\Resources" Name="SwresampleDll" Type="string" Value="1" KeyPath="yes"/>
 						</Component>
+
+						<Component Id="ffmpegComponent" Guid="0d1e2f3a-4b5c-5678-9024-4567abcdef12">
+							<File Id="ffmpeg" Source="..\phone utils\bin\Release\net8.0-windows10.0.19041.0\Resources\ffmpeg.exe"/>
+							<RegistryValue Root="HKCU" Key="Software\PhoneUtils\Resources" Name="ffmpeg" Type="string" Value="1" KeyPath="yes"/>
+						</Component>
+						
 						<Component Id="logo" Guid="0d1e2f3a-4b5c-5678-9014-4567abcdef32">
 							<File Id="logo" Source="..\phone utils\bin\Release\net8.0-windows10.0.19041.0\Resources\logo.png"/>
 							<RegistryValue Root="HKCU" Key="Software\PhoneUtils\Resources" Name="logo" Type="string" Value="1" KeyPath="yes"/>
@@ -224,6 +230,7 @@
 			<ComponentRef Id="ScrcpyServerComponent"/>
 			<ComponentRef Id="SDL2DllComponent"/>
 			<ComponentRef Id="SwresampleDllComponent"/>
+			<ComponentRef Id="ffmpegComponent"/>
 			<ComponentRef Id="logo"/>
 			<ComponentRef Id="AppDataFolderComponent"/>
 

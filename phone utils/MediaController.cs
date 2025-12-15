@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System;
+using System.Threading.Tasks;
 
 namespace phone_utils
 {
@@ -47,10 +48,11 @@ namespace phone_utils
         private readonly Func<Task> updateCurrentSongCallback; // optional callback to refresh song
         private string lastSMTCTitle;
 
-        private readonly CoverCacheManager cacheManager;
+        // Make cache manager mutable so it can be refreshed when settings change
+        private CoverCacheManager cacheManager;
 
-        // Make remoteRoot configurable via config (FileSync.RemoteDir). Fallback to previous hardcoded path.
-        private readonly string remoteRoot;
+        // Make remoteRoot mutable so it can be updated when settings change
+        private string remoteRoot;
 
         public MediaController(Dispatcher dispatcher, Func<string> getCurrentDevice, Func<Task> updateCurrentSongCallback)
         {
@@ -65,15 +67,17 @@ namespace phone_utils
                 var Config = ConfigManager.Load(ConfigPath);
                 cacheManager = new CoverCacheManager(Config.Paths.FfmpegPath, Config.Paths.CoverCachePath);
 
-                // Read remote root from config FileSync.RemoteDir if present
-                if (Config != null && Config.FileSync != null && !string.IsNullOrWhiteSpace(Config.FileSync.RemoteDir))
+                // Prefer SpecialOptions.MusicRemoteRoot if set, otherwise fall back to FileSync.RemoteDir
+                if (Config != null)
                 {
-                    remoteRoot = Config.FileSync.RemoteDir;
+                    if (Config.SpecialOptions != null && !string.IsNullOrWhiteSpace(Config.SpecialOptions.MusicRemoteRoot))
+                        remoteRoot = Config.SpecialOptions.MusicRemoteRoot;
+                    else
+                        remoteRoot = string.Empty;
                 }
                 else
                 {
-                    // previous hardcoded default
-                    remoteRoot = "";
+                    remoteRoot = string.Empty;
                 }
             }
             catch (Exception ex)
@@ -81,6 +85,40 @@ namespace phone_utils
                 Debugger.show("Failed to initialize CoverCacheManager: " + ex.Message);
                 // ensure remoteRoot has a value even if config load failed
                 remoteRoot = "";
+            }
+        }
+
+        /// <summary>
+        /// Update runtime configuration for the MediaController. Call when app config changes.
+        /// This will recreate the cover cache manager (safe) and update the remote music root.
+        /// </summary>
+        public void UpdateConfig(AppConfig config)
+        {
+            try
+            {
+                if (config == null) return;
+
+                // Recreate cache manager if paths changed (or just recreate unconditionally)
+                try
+                {
+                    cacheManager = new CoverCacheManager(config.Paths.FfmpegPath, config.Paths.CoverCachePath);
+                }
+                catch (Exception ex)
+                {
+                    Debugger.show("Failed to recreate CoverCacheManager during UpdateConfig: " + ex.Message);
+                }
+
+                // Prefer SpecialOptions.MusicRemoteRoot when available
+                if (config.SpecialOptions != null && !string.IsNullOrWhiteSpace(config.SpecialOptions.MusicRemoteRoot))
+                    remoteRoot = config.SpecialOptions.MusicRemoteRoot;
+                else
+                    remoteRoot = config.FileSync?.RemoteDir ?? string.Empty;
+
+                Debugger.show("MediaController configuration updated. RemoteRoot='" + remoteRoot + "'");
+            }
+            catch (Exception ex)
+            {
+                Debugger.show("MediaController.UpdateConfig failed: " + ex.Message);
             }
         }
 

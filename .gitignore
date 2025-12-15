@@ -361,3 +361,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# FFmpeg (do not upload binaries – license)
+ffmpeg/
+ffmpeg.exe
+ffmpeg/*.exe
+ffmpeg/**/*.exe
