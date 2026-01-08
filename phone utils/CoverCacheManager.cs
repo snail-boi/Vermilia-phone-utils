@@ -7,6 +7,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Diagnostics;
+using System.Globalization;
 
 namespace phone_utils
 {
@@ -127,6 +129,8 @@ namespace phone_utils
             public long Size { get; set; }
             public DateTime LastAccessUtc { get; set; }
             public string FolderKey { get; set; }
+            // Duration in seconds (can be 0 if unknown)
+            public double DurationSeconds { get; set; }
         }
 
         public void ClearCache()
@@ -163,11 +167,12 @@ namespace phone_utils
             }
         }
 
-        public async Task<string> GetImagePathForNowPlayingAsync(string deviceId, string remoteFilePath)
+        // Returns tuple of cached image path (or null) and optional duration in seconds
+        public async Task<(string ImagePath, double? DurationSeconds)> GetImagePathForNowPlayingAsync(string deviceId, string remoteFilePath)
         {
             try
             {
-                if (string.IsNullOrEmpty(deviceId) || string.IsNullOrEmpty(remoteFilePath)) return null;
+                if (string.IsNullOrEmpty(deviceId) || string.IsNullOrEmpty(remoteFilePath)) return (null, null);
 
                 string folderPath = Path.GetDirectoryName(remoteFilePath).Replace("\\", "/");
                 string key = ComputeKey(deviceId, remoteFilePath);
@@ -181,7 +186,8 @@ namespace phone_utils
                         entry.LastAccessUtc = DateTime.UtcNow;
                         SaveIndex();
                         Debugger.show("Using folder-mapped cover for " + remoteFilePath);
-                        return Path.Combine(cachePath, entry.FileName);
+                        var p = Path.Combine(cachePath, entry.FileName);
+                        return (p, entry.DurationSeconds > 0 ? (double?)entry.DurationSeconds : null);
                     }
                 }
 
@@ -191,14 +197,15 @@ namespace phone_utils
                     existing.LastAccessUtc = DateTime.UtcNow;
                     SaveIndex();
                     Debugger.show("Found cached cover for " + remoteFilePath);
-                    return Path.Combine(cachePath, existing.FileName);
+                    var p = Path.Combine(cachePath, existing.FileName);
+                    return (p, existing.DurationSeconds > 0 ? (double?)existing.DurationSeconds : null);
                 }
 
                 // 3. If marked nocover, skip
                 if (nocover.ContainsKey(key))
                 {
                     Debugger.show("Key marked nocover: " + key);
-                    return null;
+                    return (null, null);
                 }
 
                 // 4. Attempt to extract embedded cover art from the file itself first (preferred)
@@ -215,17 +222,22 @@ namespace phone_utils
                         string cachedFull_emb = Path.Combine(cachePath, cachedFilename_emb);
 
                         var extractedEmbedded = await RunFfmpegExtractAsync(tempPull_emb, cachedFull_emb);
+
+                        // Get duration for the pulled file and store it
+                        double? dur_emb = null;
+                        try { dur_emb = await GetMediaDurationAsync(tempPull_emb).ConfigureAwait(false); } catch { }
+
                         try { File.Delete(tempPull_emb); } catch { }
 
                         if (extractedEmbedded && File.Exists(cachedFull_emb))
                         {
                             var fi = new FileInfo(cachedFull_emb);
-                            var entry = new CacheEntry { FileName = cachedFilename_emb, Size = fi.Length, LastAccessUtc = DateTime.UtcNow, FolderKey = null };
+                            var entry = new CacheEntry { FileName = cachedFilename_emb, Size = fi.Length, LastAccessUtc = DateTime.UtcNow, FolderKey = null, DurationSeconds = dur_emb ?? 0 };
                             index[key] = entry;
                             SaveIndex();
                             EnforceCacheSizeLimit();
                             Debugger.show("Extracted and cached embedded cover for " + remoteFilePath);
-                            return cachedFull_emb;
+                            return (cachedFull_emb, dur_emb);
                         }
                         else
                         {
@@ -277,7 +289,7 @@ namespace phone_utils
                                         SaveIndex();
                                         EnforceCacheSizeLimit();
                                         Debugger.show("Cached subfolder image for file: " + remoteFilePath);
-                                        return cachedPath;
+                                        return (cachedPath, null);
                                     }
                                 }
                             }
@@ -313,7 +325,7 @@ namespace phone_utils
                                     SaveIndex();
                                     EnforceCacheSizeLimit();
                                     Debugger.show("Cached folder image for file: " + remoteFilePath);
-                                    return cachedPath;
+                                    return (cachedPath, null);
                                 }
                                 else
                                 {
@@ -375,7 +387,7 @@ namespace phone_utils
                                     SaveIndex();
                                     EnforceCacheSizeLimit();
                                     Debugger.show("Cached discovered folder image for file: " + remoteFilePath);
-                                    return cachedPath;
+                                    return (cachedPath, null);
                                 }
                             }
                         }
@@ -418,7 +430,7 @@ namespace phone_utils
                                             SaveIndex();
                                             EnforceCacheSizeLimit();
                                             Debugger.show("Cached discovered subfolder image for file: " + remoteFilePath);
-                                            return cachedPath;
+                                            return (cachedPath, null);
                                         }
                                     }
                                 }
@@ -444,7 +456,7 @@ namespace phone_utils
                     // mark nocover to avoid repeated attempts
                     nocover[key] = DateTime.UtcNow;
                     SaveNoCover();
-                    return null;
+                    return (null, null);
                 }
 
                 string cachedFilename = key + ".jpg";
@@ -452,30 +464,34 @@ namespace phone_utils
 
                 var extracted = await RunFfmpegExtractAsync(tempPull, cachedFull);
 
+                // capture duration
+                double? dur = null;
+                try { dur = await GetMediaDurationAsync(tempPull).ConfigureAwait(false); } catch { }
+
                 try { File.Delete(tempPull); } catch { }
 
                 if (extracted && File.Exists(cachedFull))
                 {
                     var fi = new FileInfo(cachedFull);
-                    var entry = new CacheEntry { FileName = cachedFilename, Size = fi.Length, LastAccessUtc = DateTime.UtcNow, FolderKey = folderKey };
+                    var entry = new CacheEntry { FileName = cachedFilename, Size = fi.Length, LastAccessUtc = DateTime.UtcNow, FolderKey = folderKey, DurationSeconds = dur ?? 0 };
                     index[key] = entry;
                     SaveIndex();
                     EnforceCacheSizeLimit();
                     Debugger.show("Extracted and cached cover for " + remoteFilePath);
-                    return cachedFull;
+                    return (cachedFull, dur);
                 }
                 else
                 {
                     Debugger.show("No cover extracted for " + remoteFilePath + "; marking as nocover");
                     nocover[key] = DateTime.UtcNow;
                     SaveNoCover();
-                    return null;
+                    return (null, dur);
                 }
             }
             catch (Exception ex)
             {
                 Debugger.show("GetImagePathForNowPlayingAsync failed: " + ex.Message);
-                return null;
+                return (null, null);
             }
         }
 
@@ -535,6 +551,52 @@ namespace phone_utils
                 Debugger.show("RunFfmpegExtractAsync exception: " + ex.Message);
                 return false;
             }
+        }
+
+        private async Task<double?> GetMediaDurationAsync(string inputPath)
+        {
+            try
+            {
+                if (!File.Exists(ffmpegPath))
+                {
+                    Debugger.show("ffmpeg not found at: " + ffmpegPath);
+                    return null;
+                }
+
+                var args = $"-i \"{inputPath}\" -hide_banner";
+                var psi = new ProcessStartInfo
+                {
+                    FileName = ffmpegPath,
+                    Arguments = args,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true
+                };
+
+                using var proc = Process.Start(psi);
+                if (proc == null) return null;
+
+                string stderr = await proc.StandardError.ReadToEndAsync();
+                proc.WaitForExit();
+
+                // look for Duration: HH:MM:SS.xx
+                var m = Regex.Match(stderr, "Duration:\\s*(\\d+):(\\d+):(\\d+(?:\\.\\d+)?)");
+                if (m.Success)
+                {
+                    int hh = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+                    int mm = int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture);
+                    double ss = double.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture);
+                    double total = hh * 3600 + mm * 60 + ss;
+                    return total;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debugger.show("GetMediaDurationAsync failed: " + ex.Message);
+            }
+
+            return null;
         }
 
         private void EnforceCacheSizeLimit()

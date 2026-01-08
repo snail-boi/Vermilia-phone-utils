@@ -487,9 +487,15 @@ namespace phone_utils
                 {
                     Debugger.show($"Processing remote file for cover art: {remotePath}");
 
-                    string imagePath = await cacheManager.GetImagePathForNowPlayingAsync(device, remotePath).ConfigureAwait(false);
+                    var result = await cacheManager.GetImagePathForNowPlayingAsync(device, remotePath).ConfigureAwait(false);
+                    string imagePath = result.ImagePath;
+                    double? durSeconds = result.DurationSeconds;
+
                     if (!string.IsNullOrEmpty(imagePath) && File.Exists(imagePath))
                     {
+                        if (durSeconds.HasValue && durSeconds.Value > 0)
+                            duration = TimeSpan.FromSeconds(durSeconds.Value);
+
                         Debugger.show($"Found cached image at {imagePath}, setting SMTC thumbnail");
                         var imageFile = await StorageFile.GetFileFromPathAsync(imagePath).AsTask().ConfigureAwait(false);
 
