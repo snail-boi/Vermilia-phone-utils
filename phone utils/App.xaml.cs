@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.IO;
+using System.Windows;
 
 namespace phone_utils
 {
@@ -15,7 +16,9 @@ namespace phone_utils
     // also the repo name will change
     public partial class App : Application
     {
-        public static readonly string CurrentVersion = "v1.3-beta2";
+        public static readonly string CurrentVersion = "v1.3-beta3";
+        public static readonly bool ScarletStarfallExists = File.Exists("C:\\Program Files (x86)\\Scarlet Phone Shortcuts\\Scarlet Phone Shortcuts.exe");
+        public static readonly bool CrimsonDawnExists = File.Exists("C:\\Program Files (x86)\\Crimson Dawn Phone Presence\\Crimson Dawn Phone Presence.exe");
     }
 
 }
