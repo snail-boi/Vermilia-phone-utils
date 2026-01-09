@@ -18,7 +18,7 @@ namespace phone_utils
     {
         public static readonly string CurrentVersion = "v1.3-beta3";
         public static readonly bool ScarletStarfallExists = File.Exists("C:\\Program Files (x86)\\Scarlet Phone Shortcuts\\Scarlet Phone Shortcuts.exe");
-        public static readonly bool CrimsonDawnExists = File.Exists("C:\\Program Files (x86)\\Crimson Dawn Phone Presence\\Crimson Dawn Phone Presence.exe");
+        public static readonly bool CrimsonDawnExists = File.Exists("C:\\Program Files (x86)\\Crimson Phone Presence\\Crimson Phone Presence.exe");
     }
 
 }
