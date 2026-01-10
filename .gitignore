@@ -362,8 +362,21 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# FFmpeg (do not upload binaries – license)
-ffmpeg/
-ffmpeg.exe
-ffmpeg/*.exe
-ffmpeg/**/*.exe
+Resources/
+/phone utils/Resources/adb.exe
+/phone utils/Resources/AdbWinApi.dll
+/phone utils/Resources/AdbWinUsbApi.dll
+/phone utils/Resources/avcodec-61.dll
+/phone utils/Resources/avformat-61.dll
+/phone utils/Resources/avutil-59.dll
+/phone utils/Resources/ffmpeg.exe
+/phone utils/Resources/icon.png
+/phone utils/Resources/libusb-1.0.dll
+/phone utils/Resources/logo.png
+/phone utils/Resources/open_a_terminal_here.bat
+/phone utils/Resources/scrcpy-console.bat
+/phone utils/Resources/scrcpy-noconsole.vbs
+/phone utils/Resources/scrcpy-server
+/phone utils/Resources/scrcpy.exe
+/phone utils/Resources/SDL2.dll
+/phone utils/Resources/swresample-5.dll
