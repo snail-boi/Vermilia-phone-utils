@@ -8,7 +8,7 @@ namespace phone_utils
         // Define the log directory
         private static readonly string logDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Phone Utils"
+            "Snail"
         );
 
         private const int MaxLogFiles = 5; // Including latest.log + 4 rotated logs

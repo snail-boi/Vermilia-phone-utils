@@ -22,7 +22,7 @@ namespace phone_utils
             {
                 string configPath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "Phone Utils",
+                    "Snail",
                     "config.json"
                 );
                 var config = ConfigManager.Load(configPath);
@@ -76,7 +76,7 @@ namespace phone_utils
             // Load config from user-writable folder
             string configPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Phone Utils",
+                "Snail",
                 "config.json"
             );
 
@@ -103,7 +103,7 @@ namespace phone_utils
             // Use a user-writable folder
             string configPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Phone Utils",
+                "Snail",
                 "config.json"
             );
 

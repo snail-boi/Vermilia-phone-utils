@@ -86,7 +86,7 @@
 
 			<!-- Resources folder in per-user AppData -->
 			<Directory Id="AppDataFolder">
-				<Directory Id="AppDataPhoneUtilsFolder" Name="Phone Utils">
+				<Directory Id="AppDataPhoneUtilsFolder" Name="Snail">
 					<Directory Id="AppDataResourcesFolder" Name="Resources">
 
 						<!-- Resource files with HKCU key path -->

@@ -22,7 +22,7 @@ namespace YTDLApp
         {
             string configPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Phone Utils",
+                "Snail",
                 "config.json"
             );
 
@@ -78,7 +78,7 @@ namespace YTDLApp
             // User-writable folder for config
             string configPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Phone Utils",
+                "Snail",
                 "config.json"
             );
 

@@ -59,7 +59,7 @@ namespace phone_utils
             }
 
             // persist
-            string path = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData), "Phone Utils", "config.json");
+            string path = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData), "Snail", "config.json");
             ConfigManager.Save(path, _config);
 
             // close

@@ -234,7 +234,7 @@ namespace phone_utils
             string exeDir = AppDomain.CurrentDomain.BaseDirectory;
             string ConfigPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Phone Utils",
+                "Snail",
                 "Config.json"
             );
 
@@ -480,7 +480,7 @@ namespace phone_utils
                         // Save config to disk
                         try
                         {
-                            string configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Phone Utils", "Config.json");
+                            string configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Snail", "Config.json");
                             ConfigManager.Save(configPath, Config);
                         }
                         catch (Exception ex)

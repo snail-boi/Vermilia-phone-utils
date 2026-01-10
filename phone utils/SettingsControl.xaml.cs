@@ -14,7 +14,7 @@ namespace phone_utils
         private string _currentDevice;
         private readonly string configPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Phone Utils",
+            "Snail",
             "config.json"
         );
 

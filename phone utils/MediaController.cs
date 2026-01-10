@@ -63,7 +63,7 @@ namespace phone_utils
             // Initialize cache manager using config values from expected location
             try
             {
-                var ConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Phone Utils", "config.json");
+                var ConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Snail", "config.json");
                 var Config = ConfigManager.Load(ConfigPath);
                 cacheManager = new CoverCacheManager(Config.Paths.FfmpegPath, Config.Paths.CoverCachePath);
 
@@ -539,7 +539,7 @@ namespace phone_utils
             {
                 string defaultImagePath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "Phone Utils", "Resources", "logo.png"
+                    "Snail", "Resources", "logo.png"
                 );
 
                 Debugger.show($"Setting default image from: {defaultImagePath}");

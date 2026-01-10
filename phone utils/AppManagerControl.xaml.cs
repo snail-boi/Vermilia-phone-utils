@@ -19,7 +19,7 @@ namespace phone_utils
             {
                 string configPath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "Phone Utils",
+                    "Snail",
                     "config.json"
                 );
                 var config = ConfigManager.Load(configPath);
@@ -186,7 +186,7 @@ namespace phone_utils
             string exeDir = AppDomain.CurrentDomain.BaseDirectory;
             string configPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Phone Utils",
+                "Snail",
                 "config.json"
             );
 

@@ -274,7 +274,7 @@ namespace phone_utils
             settings.CameraType = CmbCameraList.SelectedIndex;
             // Auto-start checkbox removed from this control; settings saved in SettingsControl now
 
-            string configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Phone Utils", "config.json");
+            string configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Snail", "config.json");
             if (!Directory.Exists(Path.GetDirectoryName(configPath))) Directory.CreateDirectory(Path.GetDirectoryName(configPath));
 
             ConfigManager.Save(configPath, _main.Config);

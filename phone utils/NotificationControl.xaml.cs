@@ -23,7 +23,7 @@ namespace phone_utils
             {
                 string configPath = System.IO.Path.Combine(
                     System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
-                    "Phone Utils",
+                    "Snail",
                     "config.json"
                 );
                 var config = ConfigManager.Load(configPath);

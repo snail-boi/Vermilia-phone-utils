@@ -203,22 +203,25 @@ namespace phone_utils
     {
         public string Adb { get; set; } = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Phone Utils",
+            "Snail",
             "Resources",
             "adb.exe");
-        public string Scrcpy { get; set; } = string.Empty;
-
+        public string Scrcpy { get; set; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Snail",
+            "Resources",
+            "scrcpy.exe");
         // Path where installer will place ffmpeg
         public string FfmpegPath { get; set; } = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Phone Utils",
+            "Snail",
             "Resources",
             "ffmpeg.exe");
 
         // Path to cover cache
         public string CoverCachePath { get; set; } = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Phone Utils",
+            "Snail",
             "CoverCache");
     }
 
