@@ -17,6 +17,7 @@ namespace phone_utils
     public partial class App : Application
     {
         public static readonly string CurrentVersion = "v1.4.1";
+        //need to add a marker for this as it can't read without elevated permissions that i would rather avoid
         public static readonly bool ScarletStarfallExists = File.Exists("C:\\Program Files (x86)\\Scarlet Phone Shortcuts\\Scarlet Phone Shortcuts.exe");
         public static readonly bool CrimsonDawnExists = File.Exists("C:\\Program Files (x86)\\Crimson Phone Presence\\Crimson Phone Presence.exe");
     }

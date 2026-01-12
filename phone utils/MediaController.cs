@@ -341,8 +341,20 @@ namespace phone_utils
         private IEnumerable<string> TokenizeForMatch(string s)
         {
             if (string.IsNullOrWhiteSpace(s)) return Array.Empty<string>();
+            // Normalize a few unicode slash-like characters to ASCII slash so tokenization and matching behave consistently
+            s = NormalizeSlashVariants(s);
             var matches = Regex.Matches(s.ToLowerInvariant(), @"[\p{L}\p{N}]{3,}");
             return matches.Select(m => m.Value).Distinct();
+        }
+
+        // Replace a few common unicode slash variants with ASCII '/' for matching and depth calculations
+        private static string NormalizeSlashVariants(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return input;
+            // Characters to normalize: DIVISION SLASH (U+2215), FRACTION SLASH (U+2044), FULLWIDTH SOLIDUS (U+FF0F)
+            return input.Replace('\u2215', '/')
+                        .Replace('\u2044', '/')
+                        .Replace('\uFF0F', '/');
         }
 
         private bool TokensMatchEnough(IEnumerable<string> titleTokens, IEnumerable<string> fileTokens)
