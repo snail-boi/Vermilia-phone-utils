@@ -179,8 +179,8 @@ namespace phone_utils
             return null;
         }
 
-        // Read MAC info (active MAC, factory MAC, randomization state) from device via adb
-        private async Task<(string ActiveMac, string FactoryMac, bool RandomizationEnabled)> GetDeviceMacInfoAsync(string serial)
+        // Read MAC info (active MAC, factory MAC) from device via adb
+        private async Task<(string ActiveMac, string FactoryMac)> GetDeviceMacInfoAsync(string serial)
         {
             try
             {
@@ -196,20 +196,17 @@ namespace phone_utils
                         string mac = m.Value.Trim().ToLower().Replace('-', ':');
                         Debugger.show("Found mac via sysfs: " + mac);
 
-                        // also try dumpsys for factory/randomization info
+                        // also try dumpsys for factory
                         string dumpsys = await AdbHelper.RunAdbCaptureAsync($"-s {serial} shell dumpsys wifi");
                         string factory = null;
                         var factoryMatch = Regex.Match(dumpsys, @"wifi_sta_factory_mac_address\s*[:=]\s*([0-9A-Fa-f:\-]+)");
                         if (factoryMatch.Success) factory = factoryMatch.Groups[1].Value.Trim().ToLower().Replace('-', ':');
 
-                        bool randEnabled = dumpsys.IndexOf("useRandomizedMac=true", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                           Regex.IsMatch(dumpsys, @"MacRandomizationSetting\s*=\s*[1-9]", RegexOptions.IgnoreCase);
-
-                        return (mac, factory ?? string.Empty, randEnabled);
+                        return (mac, factory ?? string.Empty);
                     }
                 }
 
-                // 2) Fallback: use dumpsys wifi to extract active MAC and factory/randomization info
+                // 2) Fallback: use dumpsys wifi to extract active MAC and factory
                 string dump = await AdbHelper.RunAdbCaptureAsync($"-s {serial} shell dumpsys wifi");
                 if (!string.IsNullOrWhiteSpace(dump))
                 {
@@ -225,11 +222,7 @@ namespace phone_utils
                     var factoryMatch2 = Regex.Match(dump, @"wifi_sta_factory_mac_address\s*[:=]\s*([0-9A-Fa-f:\-]+)");
                     string factory2 = factoryMatch2.Success ? factoryMatch2.Groups[1].Value.ToLower().Replace('-', ':') : string.Empty;
 
-                    bool randEnabled2 = dump.IndexOf("useRandomizedMac=true", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                        Regex.IsMatch(dump, @"MacRandomizationSetting\s*=\s*[1-9]", RegexOptions.IgnoreCase) ||
-                                        dump.IndexOf("mRandomizedMacAddress", StringComparison.OrdinalIgnoreCase) >= 0;
-
-                    if (!string.IsNullOrEmpty(active)) return (active, factory2, randEnabled2);
+                    if (!string.IsNullOrEmpty(active)) return (active, factory2);
 
                     // 3) As a last resort, search for any MAC in output
                     var anyMac = macRegex.Match(dump);
@@ -237,16 +230,16 @@ namespace phone_utils
                     {
                         string any = anyMac.Value.ToLower().Replace('-', ':');
                         Debugger.show("Found mac via dumpsys any-match: " + any);
-                        return (any, factory2, randEnabled2);
+                        return (any, factory2);
                     }
                 }
 
-                return (string.Empty, string.Empty, false);
+                return (string.Empty, string.Empty);
             }
             catch (Exception ex)
             {
                 Debugger.show("GetDeviceMacInfoAsync exception: " + ex.Message);
-                return (string.Empty, string.Empty, false);
+                return (string.Empty, string.Empty);
             }
         }
 
@@ -335,7 +328,7 @@ namespace phone_utils
                 }
 
                 // Retrieve MAC info from device (while still USB connected)
-                var (activeMac, factoryMac, randomEnabled) = await GetDeviceMacInfoAsync(serial);
+                var (activeMac, factoryMac) = await GetDeviceMacInfoAsync(serial);
 
                 var newDevice = new DeviceConfig
                 {
@@ -348,9 +341,8 @@ namespace phone_utils
                     // Save MAC info if available
                     MacAddress = string.IsNullOrWhiteSpace(activeMac) ? string.Empty : activeMac,
                     FactoryMac = string.IsNullOrWhiteSpace(factoryMac) ? string.Empty : factoryMac,
-                    MacRandomizationEnabled = randomEnabled,
                 };
-                Debugger.show("New device created: " + newDevice.UsbSerial + ", Name: " + newDevice.Name + ", MAC: " + newDevice.MacAddress + ", Port: " + newDevice.DebugPort);
+                Debugger.show("New device created: " + newDevice.UsbSerial + ", Name: " + newDevice.Name + ", MAC: " + newDevice.MacAddress);
 
                 // Remove existing device with same serial
                 var existing = _config.SavedDevices.FirstOrDefault(d => d.UsbSerial == serial);

@@ -73,15 +73,8 @@ namespace phone_utils
         // New: store the device's current Wi-Fi MAC (colon-separated, lower-case)
         public string MacAddress { get; set; } = string.Empty;
 
-        // New: store factory MAC if available (useful when randomization is enabled)
+        // New: store factory MAC if available
         public string FactoryMac { get; set; } = string.Empty;
-
-        // New: whether device reports MAC randomization enabled
-        public bool MacRandomizationEnabled { get; set; } = false;
-
-        // New: store the debug port for Wireless Debugging (Android 11+)
-        // Do not default to 5555; leave empty so wireless pairing determines the port.
-        public string DebugPort { get; set; } = "";
 
         public override string ToString() => string.IsNullOrWhiteSpace(Name) ? base.ToString() : Name;
     }
