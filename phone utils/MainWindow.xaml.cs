@@ -469,7 +469,7 @@ namespace phone_utils
                     if (!string.IsNullOrEmpty(foundIp))
                     {
                         // If a debug port was saved (from wireless pairing), append it. Do NOT default to 5555.
-                        string newTcp = foundIp.Contains(":") ? foundIp : (string.IsNullOrEmpty(saved.DebugPort) ? foundIp : $"{foundIp}:{saved.DebugPort}");
+                        string newTcp = $"{foundIp}:5555";
 
                         Debugger.show($"Discovered device IP {foundIp} for MAC {mac}, updating config to {newTcp}");
 
@@ -491,7 +491,7 @@ namespace phone_utils
                         // Attempt to connect via ADB
                         var connectResult = await AdbHelper.RunAdbCaptureAsync($"connect {Config.SelectedDeviceWiFi}");
                         Debugger.show("ADB connect result after discovery: " + connectResult);
-
+                        MessageBox.Show($"please reconnect the device via USB to set up the port again", "Port lost", MessageBoxButton.OK, MessageBoxImage.Information);
                         return true;
                     }
                 }
@@ -660,7 +660,7 @@ namespace phone_utils
 
             Debugger.show($"USB device {currentDevice} connected");
 
-            // Note: Do not attempt legacy tcpip 5555 setup here. Wireless Debugging pairing should be used instead.
+            await SetupWifiOverUsbAsync(deviceList);
 
             // Auto USB start: only start on a fresh connect event
             try
@@ -694,6 +694,27 @@ namespace phone_utils
             if (ContentHost.Content == null) ShowNotificationsAsDefault();
 
             return true;
+        }
+
+        private async Task SetupWifiOverUsbAsync(string[] deviceList)
+        {
+            if (string.IsNullOrEmpty(Config.SelectedDeviceWiFi)) return;
+
+            bool wifiAlreadyConnected = deviceList.Any(l => l.StartsWith(Config.SelectedDeviceWiFi));
+            if (wifiAlreadyConnected)
+            {
+                Debugger.show("Wi-Fi device already connected via USB setup");
+                return;
+            }
+
+            Debugger.show("Enabling TCP/IP mode on USB device");
+            await AdbHelper.RunAdbAsync($"-s {Config.SelectedDeviceUSB} tcpip 5555");
+            var connectResult = await AdbHelper.RunAdbCaptureAsync($"connect {Config.SelectedDeviceWiFi}");
+            Debugger.show($"Wi-Fi connection result: {connectResult}");
+
+            StatusText.Text += connectResult.Contains("connected")
+                ? " | Wi-Fi port has been set up."
+                : " | Failed to connect Wi-Fi device.";
         }
 
         private async Task<bool> CheckWifiDeviceAsync(string[] deviceList)

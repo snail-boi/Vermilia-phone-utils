@@ -282,7 +282,6 @@ namespace phone_utils
                 string ip = await GetDeviceIpAsync(serial);
                 string tcpIpWithPort;
                 bool saveWithWifi = false;
-                string debugPort = ""; // Do not default to 5555; use empty until wireless pairing provides a port
 
                 if (string.IsNullOrEmpty(ip))
                 {
@@ -312,22 +311,9 @@ namespace phone_utils
 
                     if (result == MessageBoxResult.Yes)
                     {
+                        tcpIpWithPort = ip + ":5555"; // Default port
+                        Debugger.show($"Wireless Debugging enabled. IP: {ip}");
                         // Wireless Debugging Flow
-                        var pairingWindow = new WirelessPairingWindow(ip);
-                        pairingWindow.Owner = Window.GetWindow(this);
-                        if (pairingWindow.ShowDialog() == true)
-                        {
-                            debugPort = pairingWindow.PairedPort;
-                            tcpIpWithPort = string.IsNullOrEmpty(debugPort) ? ip : $"{ip}:{debugPort}";
-                            saveWithWifi = true;
-                            Debugger.show($"Wireless Debugging enabled. IP: {ip}, Port: {debugPort}");
-                        }
-                        else
-                        {
-                            // User cancelled pairing, fallback to USB only
-                            tcpIpWithPort = "None";
-                            Debugger.show("Wireless pairing cancelled. Saving as USB only.");
-                        }
                     }
                     else if (result == MessageBoxResult.No)
                     {
@@ -363,7 +349,6 @@ namespace phone_utils
                     MacAddress = string.IsNullOrWhiteSpace(activeMac) ? string.Empty : activeMac,
                     FactoryMac = string.IsNullOrWhiteSpace(factoryMac) ? string.Empty : factoryMac,
                     MacRandomizationEnabled = randomEnabled,
-                    DebugPort = debugPort // Save the port if pairing occurred; otherwise empty
                 };
                 Debugger.show("New device created: " + newDevice.UsbSerial + ", Name: " + newDevice.Name + ", MAC: " + newDevice.MacAddress + ", Port: " + newDevice.DebugPort);
 
@@ -386,18 +371,6 @@ namespace phone_utils
                 DeviceSelector.SelectionChanged += DeviceSelector_SelectionChanged;
 
                 await SaveConfig(false);
-
-                // Show a warning if MAC randomization is enabled
-                if (newDevice.MacRandomizationEnabled)
-                {
-                    MessageBox.Show(
-                        "MAC randomization is enabled on this device. If you never changed MAC randomization settings, it is fine to keep them for security reasons. " +
-                        "However, be aware that the device may fail to connect over Wi-Fi debugging if the randomized MAC changes. Consider disabling per-network randomized MAC in your phone's Wi‑Fi network settings for a more stable connection.",
-                        "MAC Randomization Detected",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning
-                    );
-                }
 
                 string msg;
                 if (tcpIpWithPort == "None")
