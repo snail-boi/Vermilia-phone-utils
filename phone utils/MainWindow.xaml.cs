@@ -29,6 +29,7 @@ namespace phone_utils
         public bool devmode;
         public bool MusicPresence;
         public static bool debugmode;
+        private bool portlost = false;
 
         private MediaController mediaController;
 
@@ -491,8 +492,12 @@ namespace phone_utils
                         // Attempt to connect via ADB
                         var connectResult = await AdbHelper.RunAdbCaptureAsync($"connect {Config.SelectedDeviceWiFi}");
                         Debugger.show("ADB connect result after discovery: " + connectResult);
-                        MessageBox.Show($"please reconnect the device via USB to set up the port again", "Port lost", MessageBoxButton.OK, MessageBoxImage.Information);
+                        StatusText.Text = "Port lost";
+                        DeviceStatusText.Text = "please reconnect the device via USB to set up the port again";
+                        //hate that this is the only seamingly stable way to detect port loss
+                        portlost = true;
                         return true;
+
                     }
                 }
 
@@ -659,8 +664,8 @@ namespace phone_utils
             currentDevice = Config.SelectedDeviceUSB;
 
             Debugger.show($"USB device {currentDevice} connected");
-
-            await SetupWifiOverUsbAsync(deviceList);
+            //hate
+            if (portlost == true) await SetupWifiOverUsbAsync(deviceList);
 
             // Auto USB start: only start on a fresh connect event
             try
@@ -698,6 +703,8 @@ namespace phone_utils
 
         private async Task SetupWifiOverUsbAsync(string[] deviceList)
         {
+            //fuck this stupid ass shit fuck this stupid variable FUCK
+            portlost = false;
             if (string.IsNullOrEmpty(Config.SelectedDeviceWiFi)) return;
 
             bool wifiAlreadyConnected = deviceList.Any(l => l.StartsWith(Config.SelectedDeviceWiFi));
