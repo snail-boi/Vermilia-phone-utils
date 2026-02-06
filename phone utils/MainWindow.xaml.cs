@@ -13,6 +13,7 @@ using System.Net.NetworkInformation;
 using System.Net;
 using System.Threading;
 using System.Collections.Generic;
+using Windows.ApplicationModel.Calls;
 
 namespace phone_utils
 {
@@ -42,6 +43,7 @@ namespace phone_utils
         // Track consecutive failed wifi connect attempts per configured Wi‑Fi target
         private readonly Dictionary<string, int> _wifiConnectFailures = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private const int WifiFailThreshold = 3;
+        private bool stopSpammingARP = false;
 
         // Tray icon manager (separate class in its own file)
         private TrayIconManager _trayIconManager;
@@ -371,20 +373,27 @@ namespace phone_utils
                         devices = await AdbHelper.RunAdbCaptureAsync("devices");
                         deviceList = devices.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                     }
-                    else
+                    else if(!portlost)
                     {
                         // increment failure counter
                         int count = 0;
-                        _wifiConnectFailures.TryGetValue(Config.SelectedDeviceWiFi, out count);
-                        count++;
-                        _wifiConnectFailures[Config.SelectedDeviceWiFi] = count;
-                        Debugger.show($"adb connect failed for {Config.SelectedDeviceWiFi}. Failure count: {count}");
+                        if (stopSpammingARP == false)
+                        {
+                            _wifiConnectFailures.TryGetValue(Config.SelectedDeviceWiFi, out count);
+                            count++;
+                            _wifiConnectFailures[Config.SelectedDeviceWiFi] = count;
+                            Debugger.show($"adb connect failed for {Config.SelectedDeviceWiFi}. Failure count: {count}");
+                        }
+                        else
+                        {
+                            Debugger.show("Stop fucking spamming ARP pls");
+                            count = 0;
+                        }
 
                         // only attempt ARP discovery after threshold failures
                         if (count >= WifiFailThreshold)
                         {
                             Debugger.show($"Failure threshold reached ({WifiFailThreshold}) for {Config.SelectedDeviceWiFi}. Attempting IP discovery by MAC...");
-
                             bool resolved = await TryResolveDeviceIpAndReconnectAsync();
 
                             // reset counter either way to avoid repeated ARP spam
@@ -421,94 +430,111 @@ namespace phone_utils
                 // Now check if Wi‑Fi device is connected
                 if (await CheckWifiDeviceAsync(deviceList)) return;
             }
-
-            SetStatus("No selected device found!", Colors.Red);
-            EnableButtons(false);
-            Debugger.show("No device detected");
+            if (!portlost && !stopSpammingARP)
+            {
+                SetStatus("No selected device found!", Colors.Red);
+                EnableButtons(false);
+                Debugger.show("No device detected");
+            }
+            else if (portlost)
+            {
+                SetStatus("Port lost", Colors.Orange);
+            }
         }
 
         private async Task<bool> TryResolveDeviceIpAndReconnectAsync()
         {
-            try
+            if (stopSpammingARP == true)
             {
-                // Find the saved device matching the selected device
-                DeviceConfig saved = null;
-                if (!string.IsNullOrEmpty(Config.SelectedDeviceUSB))
-                    saved = Config.SavedDevices.FirstOrDefault(d => d.UsbSerial == Config.SelectedDeviceUSB);
-                if (saved == null && !string.IsNullOrEmpty(Config.SelectedDeviceName))
-                    saved = Config.SavedDevices.FirstOrDefault(d => d.Name == Config.SelectedDeviceName);
-                if (saved == null && !string.IsNullOrEmpty(Config.SelectedDeviceWiFi))
-                    saved = Config.SavedDevices.FirstOrDefault(d => d.TcpIp == Config.SelectedDeviceWiFi);
-
-                if (saved == null)
+                return false;
+            }
+            else
+            {
+                stopSpammingARP = true;
+            }
+                try
                 {
-                    Debugger.show("No matching saved device found for IP resolution");
-                    return false;
-                }
+                    // Find the saved device matching the selected device
+                    DeviceConfig saved = null;
+                    if (!string.IsNullOrEmpty(Config.SelectedDeviceUSB))
+                        saved = Config.SavedDevices.FirstOrDefault(d => d.UsbSerial == Config.SelectedDeviceUSB);
+                    if (saved == null && !string.IsNullOrEmpty(Config.SelectedDeviceName))
+                        saved = Config.SavedDevices.FirstOrDefault(d => d.Name == Config.SelectedDeviceName);
+                    if (saved == null && !string.IsNullOrEmpty(Config.SelectedDeviceWiFi))
+                        saved = Config.SavedDevices.FirstOrDefault(d => d.TcpIp == Config.SelectedDeviceWiFi);
 
-                // If device is explicitly saved as USB-only, do not attempt discovery
-                if (!string.IsNullOrEmpty(saved.TcpIp) && saved.TcpIp.Equals("None", StringComparison.OrdinalIgnoreCase))
-                {
-                    Debugger.show("Device is marked USB-only (TcpIp == 'None'); skipping IP discovery.");
-                    return false;
-                }
-
-                // Determine MACs to search for
-                var candidates = new List<string>();
-                if (!string.IsNullOrWhiteSpace(saved.MacAddress)) candidates.Add(saved.MacAddress.ToLower());
-                if (!string.IsNullOrWhiteSpace(saved.FactoryMac)) candidates.Add(saved.FactoryMac.ToLower());
-                if (candidates.Count == 0)
-                {
-                    Debugger.show("No MAC info stored for device; cannot perform IP discovery by MAC.");
-                    return false;
-                }
-
-                // Try each candidate MAC
-                foreach (var mac in candidates)
-                {
-                    string foundIp = await DiscoverIpByMacAsync(mac);
-                    if (!string.IsNullOrEmpty(foundIp))
+                    if (saved == null)
                     {
-                        // If a debug port was saved (from wireless pairing), append it. Do NOT default to 5555.
-                        string newTcp = $"{foundIp}:5555";
-
-                        Debugger.show($"Discovered device IP {foundIp} for MAC {mac}, updating config to {newTcp}");
-
-                        // Update config entries
-                        saved.TcpIp = newTcp;
-                        Config.SelectedDeviceWiFi = newTcp;
-
-                        // Save config to disk
-                        try
-                        {
-                            string configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Snail", "Config.json");
-                            ConfigManager.Save(configPath, Config);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debugger.show("Failed to save config after IP discovery: " + ex.Message);
-                        }
-
-                        // Attempt to connect via ADB
-                        var connectResult = await AdbHelper.RunAdbCaptureAsync($"connect {Config.SelectedDeviceWiFi}");
-                        Debugger.show("ADB connect result after discovery: " + connectResult);
-                        StatusText.Text = "Port lost";
-                        DeviceStatusText.Text = "please reconnect the device via USB to set up the port again";
-                        //hate that this is the only seamingly stable way to detect port loss
-                        portlost = true;
-                        return true;
-
+                        Debugger.show("No matching saved device found for IP resolution");
+                        return false;
                     }
-                }
 
-                Debugger.show("IP discovery by MAC did not find the device on the local subnet");
-                return false;
-            }
-            catch (Exception ex)
-            {
-                Debugger.show("TryResolveDeviceIpAndReconnectAsync exception: " + ex.Message);
-                return false;
-            }
+                    // If device is explicitly saved as USB-only, do not attempt discovery
+                    if (!string.IsNullOrEmpty(saved.TcpIp) && saved.TcpIp.Equals("None", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Debugger.show("Device is marked USB-only (TcpIp == 'None'); skipping IP discovery.");
+                        return false;
+                    }
+
+                    // Determine MACs to search for
+                    var candidates = new List<string>();
+                    if (!string.IsNullOrWhiteSpace(saved.MacAddress)) candidates.Add(saved.MacAddress.ToLower());
+                    if (!string.IsNullOrWhiteSpace(saved.FactoryMac)) candidates.Add(saved.FactoryMac.ToLower());
+                    if (candidates.Count == 0)
+                    {
+                        Debugger.show("No MAC info stored for device; cannot perform IP discovery by MAC.");
+                        return false;
+                    }
+
+                    // Try each candidate MAC
+                    foreach (var mac in candidates)
+                    {
+                        string foundIp = "";
+                        foundIp = await DiscoverIpByMacAsync(mac);
+
+                        if (!string.IsNullOrEmpty(foundIp))
+                        {
+                            // If a debug port was saved (from wireless pairing), append it.
+                            string newTcp = $"{foundIp}:5555";
+
+                            Debugger.show($"Discovered device IP {foundIp} for MAC {mac}, updating config to {newTcp}");
+
+                            // Update config entries
+                            saved.TcpIp = newTcp;
+                            Config.SelectedDeviceWiFi = newTcp;
+
+                            // Save config to disk
+                            try
+                            {
+                                string configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Snail", "Config.json");
+                                ConfigManager.Save(configPath, Config);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debugger.show("Failed to save config after IP discovery: " + ex.Message);
+                            }
+
+                            // Attempt to connect via ADB
+                            var connectResult = await AdbHelper.RunAdbCaptureAsync($"connect {Config.SelectedDeviceWiFi}");
+                            Debugger.show("ADB connect result after discovery: " + connectResult);
+                            Debugger.show("IP discovery found the device and set the IP correctly");
+                            portlost = true;
+                            return true;
+
+                        }
+                    }
+
+                    Debugger.show("IP discovery by MAC did not find the device on the local subnet");
+                    DeviceStatusText.Text = "please reconnect the device via USB to set up the port again";
+                    //hate that this is the only seamingly stable way to detect port loss
+                    portlost = true;
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    Debugger.show("TryResolveDeviceIpAndReconnectAsync exception: " + ex.Message);
+                    return false;
+                }
         }
 
         private async Task<string> DiscoverIpByMacAsync(string mac)
@@ -626,7 +652,6 @@ namespace phone_utils
                         return ip;
                     }
                 }
-
                 return null;
             }
             catch (Exception ex)
@@ -718,10 +743,40 @@ namespace phone_utils
             await AdbHelper.RunAdbAsync($"-s {Config.SelectedDeviceUSB} tcpip 5555");
             var connectResult = await AdbHelper.RunAdbCaptureAsync($"connect {Config.SelectedDeviceWiFi}");
             Debugger.show($"Wi-Fi connection result: {connectResult}");
+            if (connectResult.Contains("connected"))
+            {
+                Debugger.show("found the IP adress using mac and ARP");
+            }
+            else
+            {
+                Debugger.show("Getting IP for device: " + Config.SelectedDeviceName);
+                string output = await AdbHelper.RunAdbCaptureAsync($"-s {Config.SelectedDeviceUSB} shell ip addr show wlan0").ConfigureAwait(false);
+                var match = Regex.Match(output, @"inet (\d+\.\d+\.\d+\.\d+)/");
+                Debugger.show("IP result: " + (match.Success ? match.Groups[1].Value : "null"));
+                string IP = match.Success ? match.Groups[1].Value : null;
+                if (!string.IsNullOrEmpty(IP))
+                {
+                    Config.SelectedDeviceWiFi = IP + ":5555";
+                    Debugger.show("found the IP adress using USB ADB");
+                    DeviceConfig saved = null;
+                    if (!string.IsNullOrEmpty(Config.SelectedDeviceUSB))
+                        saved = Config.SavedDevices.FirstOrDefault(d => d.UsbSerial == Config.SelectedDeviceUSB);
+                    if (saved == null && !string.IsNullOrEmpty(Config.SelectedDeviceName))
+                        saved = Config.SavedDevices.FirstOrDefault(d => d.Name == Config.SelectedDeviceName);
+                    if (saved == null && !string.IsNullOrEmpty(Config.SelectedDeviceWiFi))
+                        saved = Config.SavedDevices.FirstOrDefault(d => d.TcpIp == Config.SelectedDeviceWiFi);
 
-            StatusText.Text += connectResult.Contains("connected")
-                ? " | Wi-Fi port has been set up."
-                : " | Failed to connect Wi-Fi device.";
+                    if (saved == null)
+                    {
+                        Debugger.show("No matching saved device found for IP resolution");
+                    }
+                    saved.TcpIp = IP + ":5555";
+                    string configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Snail", "Config.json");
+                    ConfigManager.Save(configPath, Config);
+
+                }
+
+            }
         }
 
         private async Task<bool> CheckWifiDeviceAsync(string[] deviceList)
