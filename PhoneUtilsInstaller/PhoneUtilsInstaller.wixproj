@@ -68,7 +68,7 @@ if exist "$(TargetDir)Scarlet.Phone.Shortcuts.Installer.V%25ver%25.msi" (
     del "$(TargetDir)Scarlet.Phone.Shortcuts.Installer.V%25ver%25.msi"
 )
 if exist "$(TargetDir)$(TargetName).msi" (
-    rename "$(TargetDir)$(TargetName).msi" "Scarlet.Phone.Shortcuts.Installer.V%25ver%25.msi"
+    rename "$(TargetDir)$(TargetName).msi" "Vermilia.Phone.Utils.Installer.V%25ver%25.msi"
 )</PostBuildEvent>
   </PropertyGroup>
   <!--
