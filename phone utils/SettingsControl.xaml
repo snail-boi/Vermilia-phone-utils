@@ -331,44 +331,6 @@
                     </StackPanel>
                 </Expander>
 
-                <!-- Music Presence Expander: new -->
-                <Expander IsExpanded="False" Margin="8">
-                    <Expander.Header>
-                        <TextBlock Text="Music Presence" 
-                                   FontSize="14" 
-                                   FontWeight="Bold" 
-                                   Margin="0,0,0,6"/>
-                    </Expander.Header>
-                    <StackPanel Orientation="Vertical" Margin="8">
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,6" VerticalAlignment="Center">
-                            <CheckBox x:Name="ChkMusicPresence" 
-                                      Content="Enable Music Presence" 
-                                      Margin="0" 
-                                      Foreground="White" 
-                                      Checked="ChkMusicPresence_Checked" 
-                                      Unchecked="ChkMusicPresence_Unchecked"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="Allows data collection on music." 
-                                       TextWrapping="Wrap"
-                                       Foreground="#AAA"
-                                       FontSize="9"
-                                       Margin="10,0,0,0"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,6" VerticalAlignment="Center">
-                            <TextBlock Text="Remote root:" Width="100" VerticalAlignment="Center"/>
-                            <TextBox x:Name="TxtMusicRemoteRoot" Width="350" Text="/storage/emulated/0/Download/YTDLnis/Audio" />
-                            <Button x:Name="BtnSetRemoteRoot" Content="Set" Width="50" Margin="6,0,0,0" Style="{StaticResource ModernButtonStyle}" Click="BtnSetRemoteRoot_Click"/>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,6,0,2">
-                            <TextBlock Text="Cover Art Cache:" Width="120" VerticalAlignment="Center" />
-                            <Button x:Name="BtnClearCoverCache" Width="150" Content="Clear Cover Cache" Click="BtnClearCoverCache_Click" Style="{StaticResource ModernButtonStyle}"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Expander>
-
                 <!-- Separator -->
                 <Separator Margin="8,-6,8,-6" Background="#444"/>
 

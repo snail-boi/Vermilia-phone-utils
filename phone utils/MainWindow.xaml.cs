@@ -32,8 +32,6 @@ namespace phone_utils
         public static bool debugmode;
         private bool portlost = false;
 
-        private MediaController mediaController;
-
         private int lastBatteryLevel = 100;
         private bool _isBatteryWarningShown = false;
 
@@ -56,10 +54,6 @@ namespace phone_utils
 
             // Start updater (fire-and-forget)
             _ = Updater.CheckForUpdateAsync(App.CurrentVersion);
-
-            // Initialize media controller (handles MediaPlayer/SMTC)
-            mediaController = new MediaController(Dispatcher, () => currentDevice, async () => await UpdateCurrentSongAsync());
-            mediaController.Initialize();
 
             LoadConfiguration();
 
@@ -253,13 +247,6 @@ namespace phone_utils
             devmode = Config.SpecialOptions != null && Config.SpecialOptions.DevMode;
             debugmode = Config.SpecialOptions != null && Config.SpecialOptions.DebugMode;
             MusicPresence = Config.SpecialOptions != null && Config.SpecialOptions.MusicPresence;
-
-            // Update media controller config at runtime so it picks up MusicRemoteRoot changes
-            try
-            {
-                mediaController?.UpdateConfig(Config);
-            }
-            catch { }
 
             Debugger.show($"Selected Wi-Fi device: {wifiDevice}");
             Debugger.show($"Dev mode: {devmode}, Debug mode: {debugmode}");
@@ -987,79 +974,15 @@ namespace phone_utils
                 if (string.IsNullOrEmpty(currentDevice))
                 {
                     DeviceStatusText.Text = "No device selected.";
-                    mediaController?.Clear();
                     return;
                 }
 
-                if (Config.SpecialOptions != null && Config.SpecialOptions.MusicPresence)
-                {
-                    // DevMode: detect currently playing song in Musicolet
-                    await UpdateCurrentSongAsync();
-                }
-                else
-                {
-                    // Normal mode: detect active foreground app
+                    //detect active foreground app
                     await DisplayAppActivity();
-                }
             }
             catch (Exception ex)
             {
                 DeviceStatusText.Text = $"Error retrieving info: {ex.Message}";
-                mediaController?.Clear();
-            }
-        }
-
-        private async Task UpdateCurrentSongAsync()
-        {
-            Debugger.show("Updating current song from Musicolet...");
-            string output = await AdbHelper.RunAdbCaptureAsync($"-s {currentDevice} shell dumpsys media_session");
-
-            bool foundActiveSong = false;
-
-            if (!string.IsNullOrWhiteSpace(output))
-            {
-                var sessionBlocks = output.Split(new[] { "queueTitle=" }, StringSplitOptions.RemoveEmptyEntries);
-
-                foreach (var block in sessionBlocks)
-                {
-                    if (!block.Contains("package=in.krosbits.musicolet") || !block.Contains("active=true"))
-                        continue;
-                    // Extract metadata: title, artist, album
-                    var metaMatch = Regex.Match(block,
-                        @"metadata:\s+size=\d+,\s+description=(.+?),\s+(.+?),\s+(.+)",
-                        RegexOptions.Singleline);
-
-                    if (!metaMatch.Success)
-                        continue;
-
-                    string title = metaMatch.Groups[1].Value.Trim();
-                    string artist = metaMatch.Groups[2].Value.Trim();
-                    string album = metaMatch.Groups[3].Value.Trim();
-
-                    // Extract playback state and position
-                    var stateMatch = Regex.Match(block, @"state=PlaybackState\s*\{[^}]*state=(\w+)\((\d+)\),\s*position=(\d+)", RegexOptions.Singleline);
-
-                    bool isPlaying = false;
-                    long position = 0;
-
-                    if (stateMatch.Success)
-                    {
-                        string stateText = stateMatch.Groups[1].Value.Trim().ToUpper(); // PLAYING, PAUSED, etc.
-                        isPlaying = stateText == "PLAYING";
-                        long.TryParse(stateMatch.Groups[3].Value.Trim(), out position);
-                    }
-
-
-                    if (!string.IsNullOrEmpty(title) && !string.IsNullOrEmpty(artist))
-                    {
-                        DeviceStatusText.Text = $"Song: {title} by {artist}";
-                        Debugger.show($"Now playing: {title} by {artist} ({album}) at {position} ms — Playing: {isPlaying}");
-
-                        await mediaController.UpdateMediaControlsAsync(title, artist, album, isPlaying);
-                        foundActiveSong = true;
-                        break;
-                    }
-                }
             }
         }
 
@@ -1296,8 +1219,6 @@ namespace phone_utils
             try
             {
                 CloseAllAdbProcesses();
-
-                mediaController?.Clear();
             }
             catch { }
         }
