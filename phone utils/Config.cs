@@ -98,8 +98,6 @@ namespace phone_utils
 
     public class SpecialOptionsConfig
     {
-        public bool MusicPresence { get; set; } = false;
-        public string MusicRemoteRoot { get; set; } = "";
         public bool DebugMode { get; set; } = false;
         public bool DevMode { get; set; } = false;
     }

@@ -36,7 +36,6 @@ namespace phone_utils
             // wire up buttons
             BtnAutorunStartSettings.Click += BtnAutorunStartSettings_Click;
             BtnAutoUsbStartSettings.Click += BtnAutoUsbStartSettings_Click;
-            BtnClearCoverCache.Click += BtnClearCoverCache_Click;
 
             // Use checkboxes for enabling autorun/autoUSB
             if (this.FindName("ChkAutorunStart") is CheckBox chkAutorun)
@@ -114,7 +113,6 @@ namespace phone_utils
 
             // Set checkboxes
             ChkDevmode.IsChecked = _config.SpecialOptions.DevMode;
-            ChkMusicPresence.IsChecked = _config.SpecialOptions.MusicPresence;
             ChkDebugMode.IsChecked = _config.SpecialOptions.DebugMode;
 
             // Battery warning settings
@@ -363,23 +361,7 @@ namespace phone_utils
             SaveConfig();
         }
         #endregion
-        #region music presence
-        private void ChkMusicPresence_Checked(object sender, RoutedEventArgs e)
-        {
-            if (_isInitializing) return;
-            _config.SpecialOptions.MusicPresence = true;
-            Debugger.show("MusicPresence checked.");
-            SaveConfig();
-        }
 
-        private void ChkMusicPresence_Unchecked(object sender, RoutedEventArgs e)
-        {
-            if (_isInitializing) return;
-            _config.SpecialOptions.MusicPresence = false;
-            Debugger.show("MusicPresence unchecked.");
-            SaveConfig();
-        }
-        #endregion
         #region debug mode
         private void ChkDebugMode_Checked(object sender, RoutedEventArgs e)
         {
