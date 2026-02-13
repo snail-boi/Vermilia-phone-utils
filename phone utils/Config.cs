@@ -249,6 +249,12 @@ namespace phone_utils
         public bool BackgroundCheck { get; set; } = false;
     }
 
+    public class BlockedGateway
+    {
+        public string Gateway { get; set; }
+        public DateTime BlockedAtUtc { get; set; }
+    }
+
     public static class ConfigManager
     {
         // Encrypts a string using DPAPI (CurrentUser) and returns base64
@@ -297,6 +303,9 @@ namespace phone_utils
                         Arguments = config.ScrcpyAutoStart.Arguments
                     };
                 }
+
+
+
 
                 // Ensure AutoUsbStart exists
                 if (config.AutoUsbStart == null)

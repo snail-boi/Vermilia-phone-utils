@@ -1,18 +1,19 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.DirectoryServices.ActiveDirectory;
 using System.IO;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using System.Threading.Tasks;
-using System.Net.NetworkInformation;
-using System.Net;
-using System.Threading;
-using System.Collections.Generic;
 using Windows.ApplicationModel.Calls;
 
 namespace phone_utils
@@ -31,6 +32,7 @@ namespace phone_utils
         public bool MusicPresence;
         public static bool debugmode;
         private bool portlost = false;
+        public List<BlockedGateway> WirelessBlockedGateways { get; set; } = new();
 
         private int lastBatteryLevel = 100;
         private bool _isBatteryWarningShown = false;
@@ -43,6 +45,10 @@ namespace phone_utils
         private const int WifiFailThreshold = 3;
 
         private readonly SemaphoreSlim _arpLock = new SemaphoreSlim(1, 1); //something something no ARP spam
+
+        private bool WirelessBlock = false;
+
+        private bool hasARPfailed = false;
 
         // Tray icon manager (separate class in its own file)
         private TrayIconManager _trayIconManager;
@@ -318,6 +324,7 @@ namespace phone_utils
 
         private async Task DetectDeviceAsync()
         {
+            SupportsWireless();
             Debugger.show("Starting device detection...");
 
             if (!File.Exists(Config.Paths.Adb))
@@ -336,7 +343,7 @@ namespace phone_utils
             if (await CheckUsbDeviceAsync(deviceList)) return;
 
             // Wi‑Fi handling: only if configured
-            if (!string.IsNullOrEmpty(Config.SelectedDeviceWiFi) && Config.SelectedDeviceWiFi != "None")
+            if (!string.IsNullOrEmpty(Config.SelectedDeviceWiFi) && Config.SelectedDeviceWiFi != "None" && WirelessBlock == false)
             {
                 bool wifiPresent = deviceList.Any(l => l.StartsWith(Config.SelectedDeviceWiFi));
                 if (!wifiPresent)
@@ -413,6 +420,11 @@ namespace phone_utils
 
                 // Now check if Wi‑Fi device is connected
                 if (await CheckWifiDeviceAsync(deviceList)) return;
+            }
+            else if (WirelessBlock)
+            {
+                SetStatus("Unsupported", Colors.Yellow);
+                StatusText.Text = "This Wifi connection doesn't support wireless debugging";
             }
             //no device found
             else
@@ -742,6 +754,7 @@ namespace phone_utils
             if (connectResult.Contains("connected"))
             {
                 Debugger.show("found the IP adress using mac and ARP");
+                hasARPfailed = false;
             }
             else
             {
@@ -754,6 +767,7 @@ namespace phone_utils
                 {
                     Config.SelectedDeviceWiFi = IP + ":5555";
                     Debugger.show("found the IP adress using USB ADB");
+                    hasARPfailed = true;
                     DeviceConfig saved = null;
                     if (!string.IsNullOrEmpty(Config.SelectedDeviceUSB))
                         saved = Config.SavedDevices.FirstOrDefault(d => d.UsbSerial == Config.SelectedDeviceUSB);
@@ -777,7 +791,35 @@ namespace phone_utils
 
         private async Task<bool> CheckWifiDeviceAsync(string[] deviceList)
         {
-            if (string.IsNullOrEmpty(Config.SelectedDeviceWiFi)) return false;
+            if (hasARPfailed && !deviceList.Contains(Config.SelectedDeviceWiFi))
+            {
+                string currentGateway = GetDefaultGateway();
+
+                // Make sure currentGateway is valid
+                if (!string.IsNullOrEmpty(currentGateway))
+                {
+                    // Create a new blocked gateway entry
+                    var blockedEntry = new BlockedGateway
+                    {
+                        Gateway = currentGateway,
+                        BlockedAtUtc = DateTime.UtcNow
+                    };
+
+                    // Add it to the list
+                    WirelessBlockedGateways.Add(blockedEntry);
+                    Debugger.show("this netwerk has blocked wireless");
+                    string configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Snail", "Config.json");
+                    ConfigManager.Save(configPath, Config);
+                }
+
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(Config.SelectedDeviceWiFi))
+            {
+                return false;
+            }
+
 
             bool wifiConnected = deviceList.Any(l => l.StartsWith(Config.SelectedDeviceWiFi));
             if (!wifiConnected) return false;
@@ -789,6 +831,65 @@ namespace phone_utils
             await UpdateForegroundAppAsync();
             if (ContentHost.Content == null) ShowNotificationsAsDefault();
             return true;
+        }
+
+
+
+        // probably move this to a more sensible region later
+        private string GetDefaultGateway()
+        {
+            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus != OperationalStatus.Up)
+                    continue;
+
+                if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                    continue;
+
+                var properties = ni.GetIPProperties();
+
+                // Must have a gateway
+                var gateway = properties.GatewayAddresses
+                    .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork);
+
+                if (gateway == null)
+                    continue;
+
+                // Must also have an IPv4 address (means it's actually usable)
+                var hasIpv4 = properties.UnicastAddresses
+                    .Any(a => a.Address.AddressFamily == AddressFamily.InterNetwork);
+
+                if (!hasIpv4)
+                    continue;
+
+                return gateway.Address.ToString();
+            }
+
+            return null;
+        }
+
+        private async Task<bool> SupportsWireless()
+        {
+            string currentGateway = GetDefaultGateway();
+
+            var blocked = WirelessBlockedGateways
+                .FirstOrDefault(g => g.Gateway == currentGateway);
+
+            if (blocked == null)
+            {
+                return true; // wireless allowed
+            }
+
+            TimeSpan blockDuration = TimeSpan.FromDays(14);
+            if (DateTime.UtcNow - blocked.BlockedAtUtc > blockDuration)
+            {
+                WirelessBlockedGateways.Remove(blocked);
+                return true;
+            }
+
+            // Otherwise, this gateway is currently blocked
+            return false;
+
         }
         #endregion
 
